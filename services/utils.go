@@ -10,8 +10,6 @@ import (
 	"github.com/albertoboccolini/sqd/models"
 )
 
-const SQD_VERSION = "0.0.7"
-
 type Utils struct{}
 
 func NewUtils() *Utils {

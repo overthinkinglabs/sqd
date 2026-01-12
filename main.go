@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/albertoboccolini/sqd/models"
 	"github.com/albertoboccolini/sqd/services"
 )
 
@@ -19,7 +20,7 @@ func main() {
 	flag.Parse()
 
 	if *versionFlag {
-		fmt.Printf("v%s\n", services.SQD_VERSION)
+		fmt.Printf("v%s\n", models.VERSION)
 		os.Exit(0)
 	}
 

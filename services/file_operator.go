@@ -16,8 +16,9 @@ type fileBackup struct {
 }
 
 type FileOperator struct {
-	utils     *Utils
-	dryRunner *DryRunner
+	utils        *Utils
+	dryRunner    *DryRunner
+	parallelizer *Parallelizer
 }
 
 func NewFileOperator(utils *Utils) *FileOperator {
@@ -25,6 +26,8 @@ func NewFileOperator(utils *Utils) *FileOperator {
 		utils:     utils,
 		dryRunner: NewDryRunner(utils),
 	}
+	parallelizer := NewParallelizer(fileOperator)
+	fileOperator.parallelizer = parallelizer
 	return fileOperator
 }
 
@@ -45,17 +48,9 @@ func (fileOperator *FileOperator) ExecuteCommand(command models.Command, files [
 	}
 
 	if command.Action == models.COUNT {
-		total := 0
-		for _, file := range files {
-			count, err := fileOperator.countMatches(file, command.Pattern)
-			if err != nil {
-				fileOperator.utils.printProcessingErrorMessage(file, err)
-				stats.Skipped++
-				continue
-			}
-			total += count
-			stats.Processed++
-		}
+		total := fileOperator.parallelizer.processFilesInParallel(files, func(file string) (int, error) {
+			return fileOperator.countMatches(file, command.Pattern)
+		}, &stats)
 
 		fmt.Printf("%d lines matched\n", total)
 		fileOperator.utils.printStats(stats)
@@ -63,15 +58,9 @@ func (fileOperator *FileOperator) ExecuteCommand(command models.Command, files [
 	}
 
 	if command.Action == models.SELECT {
-		for _, file := range files {
-			err := fileOperator.selectMatches(file, command.Pattern)
-			if err != nil {
-				fileOperator.utils.printProcessingErrorMessage(file, err)
-				stats.Skipped++
-				continue
-			}
-			stats.Processed++
-		}
+		fileOperator.parallelizer.processFilesInParallelNoCount(files, func(file string) error {
+			return fileOperator.selectMatches(file, command.Pattern)
+		}, &stats)
 
 		fileOperator.utils.printStats(stats)
 		return
