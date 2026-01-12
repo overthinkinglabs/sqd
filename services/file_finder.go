@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/albertoboccolini/sqd/models"
 )
 
 type FileFinder struct {
@@ -59,13 +61,7 @@ func (fileFinder *FileFinder) FindFiles(pattern string) []string {
 		return []string{pattern}
 	}
 
-	var (
-		files     []string
-		mutex     sync.Mutex
-		waitGroup sync.WaitGroup
-		sem       = make(chan struct{}, 100)
-	)
-
+	matchingPaths := []string{}
 	filepath.WalkDir(".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -76,10 +72,21 @@ func (fileFinder *FileFinder) FindFiles(pattern string) []string {
 		}
 
 		matched, _ := filepath.Match(pattern, filepath.Base(path))
-		if !matched {
-			return nil
+		if matched {
+			matchingPaths = append(matchingPaths, path)
 		}
 
+		return nil
+	})
+
+	var (
+		files     []string
+		mutex     sync.Mutex
+		waitGroup sync.WaitGroup
+		sem       = make(chan struct{}, models.MAX_CONCURRENT_GOROUTINES)
+	)
+
+	for _, path := range matchingPaths {
 		waitGroup.Add(1)
 		sem <- struct{}{}
 
@@ -93,9 +100,7 @@ func (fileFinder *FileFinder) FindFiles(pattern string) []string {
 				mutex.Unlock()
 			}
 		}(path)
-
-		return nil
-	})
+	}
 
 	waitGroup.Wait()
 	return files

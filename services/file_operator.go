@@ -5,7 +5,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/albertoboccolini/sqd/models"
@@ -17,8 +16,9 @@ type fileBackup struct {
 }
 
 type FileOperator struct {
-	utils     *Utils
-	dryRunner *DryRunner
+	utils        *Utils
+	dryRunner    *DryRunner
+	parallelizer *Parallelizer
 }
 
 func NewFileOperator(utils *Utils) *FileOperator {
@@ -26,6 +26,8 @@ func NewFileOperator(utils *Utils) *FileOperator {
 		utils:     utils,
 		dryRunner: NewDryRunner(utils),
 	}
+	parallelizer := NewParallelizer(fileOperator)
+	fileOperator.parallelizer = parallelizer
 	return fileOperator
 }
 
@@ -46,7 +48,7 @@ func (fileOperator *FileOperator) ExecuteCommand(command models.Command, files [
 	}
 
 	if command.Action == models.COUNT {
-		total := fileOperator.processFilesInParallel(files, func(file string) (int, error) {
+		total := fileOperator.parallelizer.processFilesInParallel(files, func(file string) (int, error) {
 			return fileOperator.countMatches(file, command.Pattern)
 		}, &stats)
 
@@ -56,7 +58,7 @@ func (fileOperator *FileOperator) ExecuteCommand(command models.Command, files [
 	}
 
 	if command.Action == models.SELECT {
-		fileOperator.processFilesInParallelNoCount(files, func(file string) error {
+		fileOperator.parallelizer.processFilesInParallelNoCount(files, func(file string) error {
 			return fileOperator.selectMatches(file, command.Pattern)
 		}, &stats)
 
@@ -456,77 +458,4 @@ func (fileOperator *FileOperator) rollbackFiles(backups []fileBackup) {
 			fmt.Fprintf(os.Stderr, "Rollback failed for %s -> %s: %v\n", backup.backup, backup.original, err)
 		}
 	}
-}
-
-func (fileOperator *FileOperator) processFilesInParallel(
-	files []string,
-	processor func(string) (int, error),
-	stats *models.ExecutionStats,
-) int {
-	var (
-		totalCount   int
-		mutex        sync.Mutex
-		waitingGroup sync.WaitGroup
-		sem          = make(chan struct{}, 50)
-	)
-
-	for _, file := range files {
-		waitingGroup.Add(1)
-		sem <- struct{}{}
-
-		go func(f string) {
-			defer waitingGroup.Done()
-			defer func() { <-sem }()
-
-			count, err := processor(f)
-
-			mutex.Lock()
-			if err != nil {
-				fileOperator.utils.printProcessingErrorMessage(f, err)
-				stats.Skipped++
-			} else {
-				totalCount += count
-				stats.Processed++
-			}
-			mutex.Unlock()
-		}(file)
-	}
-
-	waitingGroup.Wait()
-	return totalCount
-}
-
-func (fileOperator *FileOperator) processFilesInParallelNoCount(
-	files []string,
-	processor func(string) error,
-	stats *models.ExecutionStats,
-) {
-	var (
-		mutex        sync.Mutex
-		waitingGroup sync.WaitGroup
-		sem          = make(chan struct{}, 50)
-	)
-
-	for _, file := range files {
-		waitingGroup.Add(1)
-		sem <- struct{}{}
-
-		go func(f string) {
-			defer waitingGroup.Done()
-			defer func() { <-sem }()
-
-			err := processor(f)
-
-			mutex.Lock()
-			if err != nil {
-				fileOperator.utils.printProcessingErrorMessage(f, err)
-				stats.Skipped++
-			} else {
-				stats.Processed++
-			}
-			mutex.Unlock()
-		}(file)
-	}
-
-	waitingGroup.Wait()
 }
