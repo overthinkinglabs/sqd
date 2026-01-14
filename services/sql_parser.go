@@ -81,7 +81,7 @@ func (sqlParser *SQLParser) Parse(sql string) models.Command {
 		loc := setContentRegex.FindStringIndex(sql)
 		if loc != nil {
 			command.Replace = strings.TrimSpace(sql[loc[1]:whereIdx])
-			command.Replace = strings.Trim(command.Replace, " '\"")
+			command.Replace = strings.Trim(command.Replace, "'\"")
 		}
 	}
 
@@ -197,6 +197,8 @@ func (sqlParser *SQLParser) likeToRegex(pattern string) *regexp.Regexp {
 		pattern = pattern[:len(pattern)-1]
 	}
 
+	hadTrailingSpace := hasEnd && strings.HasSuffix(pattern, " ")
+
 	if hasEnd {
 		pattern = strings.TrimRight(pattern, " ")
 	}
@@ -207,7 +209,11 @@ func (sqlParser *SQLParser) likeToRegex(pattern string) *regexp.Regexp {
 	pattern = regexp.QuoteMeta(pattern)
 
 	if !hasStart && hasEnd {
-		pattern = "^" + pattern
+		if hadTrailingSpace {
+			pattern = "^" + pattern + " "
+		} else {
+			pattern = "^" + pattern
+		}
 	}
 
 	if hasStart && !hasEnd {
