@@ -189,7 +189,21 @@ func (sqlParser *SQLParser) likeToRegex(pattern string) *regexp.Regexp {
 	hasStart := strings.HasPrefix(pattern, "%")
 	hasEnd := strings.HasSuffix(pattern, "%")
 
-	pattern = strings.Trim(pattern, "%")
+	if hasStart {
+		pattern = pattern[1:]
+	}
+
+	if hasEnd {
+		pattern = pattern[:len(pattern)-1]
+	}
+
+	if hasEnd {
+		pattern = strings.TrimRight(pattern, " ")
+	}
+	if hasStart {
+		pattern = strings.TrimLeft(pattern, " ")
+	}
+
 	pattern = regexp.QuoteMeta(pattern)
 
 	if !hasStart && hasEnd {
@@ -198,6 +212,10 @@ func (sqlParser *SQLParser) likeToRegex(pattern string) *regexp.Regexp {
 
 	if hasStart && !hasEnd {
 		pattern = pattern + "$"
+	}
+
+	if !hasStart && !hasEnd {
+		pattern = "^" + pattern + "$"
 	}
 
 	return regexp.MustCompile(pattern)

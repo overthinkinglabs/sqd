@@ -156,8 +156,8 @@ func TestLikePatternExact(t *testing.T) {
 		t.Error("should match 'test'")
 	}
 
-	if !command.Pattern.MatchString("testing") {
-		t.Error("should match 'testing' (LIKE without % is 'contains')")
+	if command.Pattern.MatchString("testing") {
+		t.Error("should not match 'testing' (LIKE without % is exact match)")
 	}
 }
 
@@ -171,5 +171,17 @@ func TestExactMatch(t *testing.T) {
 
 	if command.Pattern.MatchString("not exact") {
 		t.Error("should not match 'not exact'")
+	}
+}
+
+func TestUpdatePreservesSpace(t *testing.T) {
+	sqlParser := services.NewSQLParser()
+	command := sqlParser.Parse("UPDATE *.md SET content = '#### ' WHERE content LIKE '### %'")
+
+	input := "### Title"
+	result := command.Pattern.ReplaceAllString(input, command.Replace)
+
+	if result != "#### Title" {
+		t.Errorf("expected '#### Title', got '%s'", result)
 	}
 }
