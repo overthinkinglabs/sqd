@@ -44,6 +44,10 @@ func main() {
 	sql := strings.Join(flag.Args(), " ")
 
 	sqlParser := services.NewSQLParser()
+	if err := sqlParser.Validate(sql); err != nil {
+		fmt.Printf("Error: %s\n", err)
+		os.Exit(1)
+	}
 	command := sqlParser.Parse(sql)
 
 	fileFinder := services.NewFileFinder()
