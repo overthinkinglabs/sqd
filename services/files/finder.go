@@ -1,4 +1,4 @@
-package services
+package files
 
 import (
 	"io/fs"
@@ -10,13 +10,13 @@ import (
 	"github.com/albertoboccolini/sqd/models"
 )
 
-type FileFinder struct {
+type Finder struct {
 	maxTextFileSize int64
 	bufferSize      int
 }
 
-func NewFileFinder() *FileFinder {
-	return &FileFinder{
+func NewFinder() *Finder {
+	return &Finder{
 		maxTextFileSize: 100 * 1024 * 1024,
 		bufferSize:      8000,
 	}
@@ -24,13 +24,13 @@ func NewFileFinder() *FileFinder {
 
 // If the file cannot be stat'ed or opened, the function returns true so that
 // callers like FindFiles do not silently skip those paths.
-func (fileFinder *FileFinder) IsTextFile(path string) bool {
+func (finder *Finder) IsTextFile(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
 		return true
 	}
 
-	if info.Size() > fileFinder.maxTextFileSize {
+	if info.Size() > finder.maxTextFileSize {
 		return false
 	}
 
@@ -40,7 +40,7 @@ func (fileFinder *FileFinder) IsTextFile(path string) bool {
 	}
 	defer file.Close()
 
-	buf := make([]byte, fileFinder.bufferSize)
+	buf := make([]byte, finder.bufferSize)
 	n, _ := file.Read(buf)
 
 	for _, b := range buf[:n] {
@@ -56,7 +56,7 @@ func (fileFinder *FileFinder) IsTextFile(path string) bool {
 	return true
 }
 
-func (fileFinder *FileFinder) FindFiles(pattern string) []string {
+func (finder *Finder) FindFiles(pattern string) []string {
 	if !strings.Contains(pattern, "*") {
 		return []string{pattern}
 	}
@@ -94,7 +94,7 @@ func (fileFinder *FileFinder) FindFiles(pattern string) []string {
 			defer waitGroup.Done()
 			defer func() { <-sem }()
 
-			if fileFinder.IsTextFile(p) {
+			if finder.IsTextFile(p) {
 				mutex.Lock()
 				files = append(files, p)
 				mutex.Unlock()

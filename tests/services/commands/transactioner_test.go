@@ -6,7 +6,31 @@ import (
 	"testing"
 
 	"github.com/albertoboccolini/sqd/services"
+	"github.com/albertoboccolini/sqd/services/commands"
+	"github.com/albertoboccolini/sqd/services/files"
 )
+
+func createDispatcher() *commands.Dispatcher {
+	utils := services.NewUtils()
+	processor := files.NewProcessor(utils)
+
+	parallelizer := files.NewParallelizer(utils)
+	dryRunner := commands.NewDryRunner(utils)
+	transactioner := commands.NewTransactioner(utils)
+	searcher := commands.NewSearcher(parallelizer, utils)
+	updater := commands.NewUpdater(processor, utils)
+	deleter := commands.NewDeleter(processor, utils)
+
+	return commands.NewDispatcher(
+		searcher,
+		updater,
+		deleter,
+		transactioner,
+		dryRunner,
+		utils,
+		parallelizer,
+	)
+}
 
 func TestTransactionPreservesFilePermissions(t *testing.T) {
 	cwd, _ := os.Getwd()
@@ -17,13 +41,12 @@ func TestTransactionPreservesFilePermissions(t *testing.T) {
 	originalInfo, _ := os.Stat(file)
 	originalMode := originalInfo.Mode()
 
-	utils := services.NewUtils()
 	sqlParser := services.NewSQLParser()
 
 	command := sqlParser.Parse("UPDATE test.txt SET content='NEW' WHERE content = 'content'")
 
-	fileOperator := services.NewFileOperator(utils)
-	fileOperator.ExecuteCommand(command, []string{file}, true, false)
+	dispatcher := createDispatcher()
+	dispatcher.Execute(command, []string{file}, true, false)
 
 	newInfo, _ := os.Stat(file)
 	if newInfo.Mode() != originalMode {
@@ -37,13 +60,12 @@ func TestTransactionEmptyFileHandling(t *testing.T) {
 	os.WriteFile(file, []byte(""), 0644)
 	defer os.Remove(file)
 
-	utils := services.NewUtils()
 	sqlParser := services.NewSQLParser()
 
 	command := sqlParser.Parse("UPDATE test.txt SET content='NEW' WHERE content = 'nonexistent'")
 
-	fileOperator := services.NewFileOperator(utils)
-	fileOperator.ExecuteCommand(command, []string{file}, true, false)
+	dispatcher := createDispatcher()
+	dispatcher.Execute(command, []string{file}, true, false)
 
 	result, _ := os.ReadFile(file)
 	if string(result) != "" {
@@ -58,13 +80,12 @@ func TestTransactionWithTrailingNewline(t *testing.T) {
 	os.WriteFile(file, []byte(content), 0644)
 	defer os.Remove(file)
 
-	utils := services.NewUtils()
 	sqlParser := services.NewSQLParser()
 
 	command := sqlParser.Parse("UPDATE test.txt SET content='UPDATED' WHERE content = 'line2'")
 
-	fileOperator := services.NewFileOperator(utils)
-	fileOperator.ExecuteCommand(command, []string{file}, true, false)
+	dispatcher := createDispatcher()
+	dispatcher.Execute(command, []string{file}, true, false)
 
 	result, _ := os.ReadFile(file)
 	expected := "line1\nUPDATED\nline3\n"
@@ -87,13 +108,12 @@ func TestTransactionMultipleFilesSuccess(t *testing.T) {
 	defer os.Remove(file2)
 	defer os.Remove(file3)
 
-	utils := services.NewUtils()
 	sqlParser := services.NewSQLParser()
 
 	command := sqlParser.Parse("UPDATE *.txt SET content='CHANGED' WHERE content LIKE 'test'")
 
-	fileOperator := services.NewFileOperator(utils)
-	fileOperator.ExecuteCommand(command, []string{file1, file2, file3}, true, false)
+	dispatcher := createDispatcher()
+	dispatcher.Execute(command, []string{file1, file2, file3}, true, false)
 
 	result1, _ := os.ReadFile(file1)
 	result2, _ := os.ReadFile(file2)

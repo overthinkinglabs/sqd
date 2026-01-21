@@ -8,6 +8,8 @@ import (
 
 	"github.com/albertoboccolini/sqd/models"
 	"github.com/albertoboccolini/sqd/services"
+	"github.com/albertoboccolini/sqd/services/commands"
+	"github.com/albertoboccolini/sqd/services/files"
 )
 
 func main() {
@@ -48,17 +50,34 @@ func main() {
 		fmt.Printf("Error: %s\n", err)
 		os.Exit(1)
 	}
+
 	command := sqlParser.Parse(sql)
 
-	fileFinder := services.NewFileFinder()
 	utils := services.NewUtils()
+	finder := files.NewFinder()
+	processor := files.NewProcessor(utils)
+	parallelizer := files.NewParallelizer(utils)
 
-	files := fileFinder.FindFiles(command.File)
-	if len(files) == 0 {
+	foundFiles := finder.FindFiles(command.File)
+	if len(foundFiles) == 0 {
 		fmt.Println("No files found")
 		os.Exit(1)
 	}
 
-	fileOperator := services.NewFileOperator(utils)
-	fileOperator.ExecuteCommand(command, files, *transactionFlag, *dryRunFlag)
+	dryRunner := commands.NewDryRunner(utils)
+	transactioner := commands.NewTransactioner(utils)
+	searcher := commands.NewSearcher(parallelizer, utils)
+	updater := commands.NewUpdater(processor, utils)
+	deleter := commands.NewDeleter(processor, utils)
+	dispatcher := commands.NewDispatcher(
+		searcher,
+		updater,
+		deleter,
+		transactioner,
+		dryRunner,
+		utils,
+		parallelizer,
+	)
+
+	dispatcher.Execute(command, foundFiles, *transactionFlag, *dryRunFlag)
 }

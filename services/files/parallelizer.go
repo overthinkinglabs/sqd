@@ -1,22 +1,23 @@
-package services
+package files
 
 import (
 	"sync"
 
 	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/services"
 )
 
 type Parallelizer struct {
-	fileOperator *FileOperator
+	utils *services.Utils
 }
 
-func NewParallelizer(fileOperator *FileOperator) *Parallelizer {
+func NewParallelizer(utils *services.Utils) *Parallelizer {
 	return &Parallelizer{
-		fileOperator: fileOperator,
+		utils: utils,
 	}
 }
 
-func (parallelizer *Parallelizer) processFilesInParallel(
+func (parallelizer *Parallelizer) ProcessFilesInParallel(
 	files []string,
 	processor func(string) (int, error),
 	stats *models.ExecutionStats,
@@ -40,7 +41,7 @@ func (parallelizer *Parallelizer) processFilesInParallel(
 
 			mutex.Lock()
 			if err != nil {
-				parallelizer.fileOperator.utils.printProcessingErrorMessage(file, err)
+				parallelizer.utils.PrintProcessingErrorMessage(file, err)
 				stats.Skipped++
 			} else {
 				totalCount += count
@@ -55,7 +56,7 @@ func (parallelizer *Parallelizer) processFilesInParallel(
 	return totalCount
 }
 
-func (parallelizer *Parallelizer) processFilesInParallelNoCount(
+func (parallelizer *Parallelizer) ProcessFilesInParallelNoCount(
 	files []string,
 	processor func(string) error,
 	stats *models.ExecutionStats,
@@ -78,7 +79,7 @@ func (parallelizer *Parallelizer) processFilesInParallelNoCount(
 
 			mutex.Lock()
 			if err != nil {
-				parallelizer.fileOperator.utils.printProcessingErrorMessage(file, err)
+				parallelizer.utils.PrintProcessingErrorMessage(file, err)
 				stats.Skipped++
 			} else {
 				stats.Processed++
