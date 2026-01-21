@@ -1,0 +1,131 @@
+package tests
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/albertoboccolini/sqd/services"
+	"github.com/albertoboccolini/sqd/services/commands"
+	"github.com/albertoboccolini/sqd/services/files"
+)
+
+func createDispatcher() *commands.Dispatcher {
+	utils := services.NewUtils()
+	processor := files.NewProcessor(utils)
+
+	parallelizer := files.NewParallelizer(utils)
+	dryRunner := commands.NewDryRunner(utils)
+	transactioner := commands.NewTransactioner(utils)
+	searcher := commands.NewSearcher(parallelizer, utils)
+	updater := commands.NewUpdater(processor, utils)
+	deleter := commands.NewDeleter(processor, utils)
+
+	return commands.NewDispatcher(
+		searcher,
+		updater,
+		deleter,
+		transactioner,
+		dryRunner,
+		utils,
+		parallelizer,
+	)
+}
+
+func TestTransactionPreservesFilePermissions(t *testing.T) {
+	cwd, _ := os.Getwd()
+	file := filepath.Join(cwd, "test.txt")
+	os.WriteFile(file, []byte("content"), 0600)
+	defer os.Remove(file)
+
+	originalInfo, _ := os.Stat(file)
+	originalMode := originalInfo.Mode()
+
+	sqlParser := services.NewSQLParser()
+
+	command := sqlParser.Parse("UPDATE test.txt SET content='NEW' WHERE content = 'content'")
+
+	dispatcher := createDispatcher()
+	dispatcher.Execute(command, []string{file}, true, false)
+
+	newInfo, _ := os.Stat(file)
+	if newInfo.Mode() != originalMode {
+		t.Errorf("file permissions changed: %v -> %v", originalMode, newInfo.Mode())
+	}
+}
+
+func TestTransactionEmptyFileHandling(t *testing.T) {
+	cwd, _ := os.Getwd()
+	file := filepath.Join(cwd, "test.txt")
+	os.WriteFile(file, []byte(""), 0644)
+	defer os.Remove(file)
+
+	sqlParser := services.NewSQLParser()
+
+	command := sqlParser.Parse("UPDATE test.txt SET content='NEW' WHERE content = 'nonexistent'")
+
+	dispatcher := createDispatcher()
+	dispatcher.Execute(command, []string{file}, true, false)
+
+	result, _ := os.ReadFile(file)
+	if string(result) != "" {
+		t.Error("empty file should remain empty when no matches")
+	}
+}
+
+func TestTransactionWithTrailingNewline(t *testing.T) {
+	cwd, _ := os.Getwd()
+	file := filepath.Join(cwd, "test.txt")
+	content := "line1\nline2\nline3\n"
+	os.WriteFile(file, []byte(content), 0644)
+	defer os.Remove(file)
+
+	sqlParser := services.NewSQLParser()
+
+	command := sqlParser.Parse("UPDATE test.txt SET content='UPDATED' WHERE content = 'line2'")
+
+	dispatcher := createDispatcher()
+	dispatcher.Execute(command, []string{file}, true, false)
+
+	result, _ := os.ReadFile(file)
+	expected := "line1\nUPDATED\nline3\n"
+	if string(result) != expected {
+		t.Errorf("transaction should preserve file format: got %q, want %q", string(result), expected)
+	}
+}
+
+func TestTransactionMultipleFilesSuccess(t *testing.T) {
+	cwd, _ := os.Getwd()
+	file1 := filepath.Join(cwd, "multi1.txt")
+	file2 := filepath.Join(cwd, "multi2.txt")
+	file3 := filepath.Join(cwd, "multi3.txt")
+
+	os.WriteFile(file1, []byte("test"), 0644)
+	os.WriteFile(file2, []byte("test"), 0644)
+	os.WriteFile(file3, []byte("test"), 0644)
+
+	defer os.Remove(file1)
+	defer os.Remove(file2)
+	defer os.Remove(file3)
+
+	sqlParser := services.NewSQLParser()
+
+	command := sqlParser.Parse("UPDATE *.txt SET content='CHANGED' WHERE content LIKE 'test'")
+
+	dispatcher := createDispatcher()
+	dispatcher.Execute(command, []string{file1, file2, file3}, true, false)
+
+	result1, _ := os.ReadFile(file1)
+	result2, _ := os.ReadFile(file2)
+	result3, _ := os.ReadFile(file3)
+
+	if string(result1) != "CHANGED" || string(result2) != "CHANGED" || string(result3) != "CHANGED" {
+		t.Error("all files should be updated atomically in transaction")
+	}
+
+	for _, f := range []string{file1, file2, file3} {
+		if _, err := os.Stat(f + ".sqd_backup"); err == nil {
+			t.Errorf("backup for %s should be cleaned up after successful transaction", f)
+		}
+	}
+}
