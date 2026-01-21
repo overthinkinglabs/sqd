@@ -8,7 +8,31 @@ import (
 
 	"github.com/albertoboccolini/sqd/models"
 	"github.com/albertoboccolini/sqd/services"
+	"github.com/albertoboccolini/sqd/services/commands"
+	"github.com/albertoboccolini/sqd/services/files"
 )
+
+func createDispatcher() *commands.Dispatcher {
+	utils := services.NewUtils()
+	processor := files.NewProcessor(utils)
+
+	parallelizer := files.NewParallelizer(utils)
+	dryRunner := commands.NewDryRunner(utils)
+	transactioner := commands.NewTransactioner(utils)
+	searcher := commands.NewSearcher(parallelizer, utils)
+	updater := commands.NewUpdater(processor, utils)
+	deleter := commands.NewDeleter(processor, utils)
+
+	return commands.NewDispatcher(
+		searcher,
+		updater,
+		deleter,
+		transactioner,
+		dryRunner,
+		utils,
+		parallelizer,
+	)
+}
 
 func TestParallelProcessingWithErrors(t *testing.T) {
 	cwd, _ := os.Getwd()
@@ -24,12 +48,11 @@ func TestParallelProcessingWithErrors(t *testing.T) {
 
 	files := []string{file1, invalidFile, file2}
 
-	utils := services.NewUtils()
+	dispatcher := createDispatcher()
 	sqlParser := services.NewSQLParser()
 	command := sqlParser.Parse("COUNT parallel_*.txt WHERE content LIKE 'content'")
 
-	fileOperator := services.NewFileOperator(utils)
-	fileOperator.ExecuteCommand(command, files, false, false)
+	dispatcher.Execute(command, files, false, false)
 
 	if _, err := os.Stat(file1); err != nil {
 		t.Error("valid file1 should still exist after processing")
@@ -57,12 +80,11 @@ func TestParallelProcessingConcurrencyLimit(t *testing.T) {
 		defer os.Remove(file)
 	}
 
-	utils := services.NewUtils()
+	dispatcher := createDispatcher()
 	sqlParser := services.NewSQLParser()
 	command := sqlParser.Parse("COUNT concurrent_test_*.txt WHERE content LIKE 'test'")
 
-	fileOperator := services.NewFileOperator(utils)
-	fileOperator.ExecuteCommand(command, files, false, false)
+	dispatcher.Execute(command, files, false, false)
 
 	for i, file := range files {
 		if _, err := os.Stat(file); err != nil {
@@ -87,12 +109,11 @@ func TestParallelProcessingMaintainsFileIntegrity(t *testing.T) {
 		defer os.Remove(file)
 	}
 
-	utils := services.NewUtils()
+	dispatcher := createDispatcher()
 	sqlParser := services.NewSQLParser()
 	command := sqlParser.Parse("COUNT integrity_test_*.txt WHERE content LIKE 'line'")
 
-	fileOperator := services.NewFileOperator(utils)
-	fileOperator.ExecuteCommand(command, files, false, false)
+	dispatcher.Execute(command, files, false, false)
 
 	for file, expected := range expectedContent {
 		data, err := os.ReadFile(file)

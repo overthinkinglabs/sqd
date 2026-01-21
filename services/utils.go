@@ -44,15 +44,20 @@ func (utils *Utils) IsPathInsideCwd(path string) bool {
 	return true
 }
 
-func (utils *Utils) printUpdateMessage(total int) {
-	fmt.Printf("Updated: %d occurrences\n", total)
+func (utils *Utils) PrintUpdateMessage(count int) {
+	if count == 1 {
+		fmt.Println("1 line updated")
+		return
+	}
+
+	fmt.Printf("%d lines updated\n", count)
 }
 
-func (utils *Utils) printProcessingErrorMessage(file string, err error) {
+func (utils *Utils) PrintProcessingErrorMessage(file string, err error) {
 	fmt.Fprintf(os.Stderr, "%s: %v\n", file, err)
 }
 
-func (utils *Utils) printStats(stats models.ExecutionStats) {
+func (utils *Utils) PrintStats(stats models.ExecutionStats) {
 	elapsed := time.Since(stats.StartTime).Seconds()
 	fmt.Printf("Processed: %d files in %.2fms\n", stats.Processed, elapsed*1000)
 	if stats.Skipped > 0 {
@@ -60,7 +65,7 @@ func (utils *Utils) printStats(stats models.ExecutionStats) {
 	}
 }
 
-func (utils *Utils) canWriteFile(path string) bool {
+func (utils *Utils) CanWriteFile(path string) bool {
 	file, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err != nil {
 		return false

@@ -1,4 +1,4 @@
-package services
+package commands
 
 import (
 	"fmt"
@@ -7,14 +7,14 @@ import (
 	"strings"
 
 	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/services"
 )
 
 type DryRunner struct {
-	utils        *Utils
-	fileOperator *FileOperator
+	utils *services.Utils
 }
 
-func NewDryRunner(utils *Utils) *DryRunner {
+func NewDryRunner(utils *services.Utils) *DryRunner {
 	return &DryRunner{utils: utils}
 }
 
@@ -36,12 +36,12 @@ func (dryRunner *DryRunner) Validate(command models.Command, files []string, sta
 	}
 
 	if command.Action == models.UPDATE {
-		dryRunner.utils.printUpdateMessage(total)
+		dryRunner.utils.PrintUpdateMessage(total)
 	} else {
 		fmt.Printf("Deleted: %d lines\n", total)
 	}
 
-	dryRunner.utils.printStats(*stats)
+	dryRunner.utils.PrintStats(*stats)
 	return true
 }
 
@@ -138,7 +138,7 @@ func (dryRunner *DryRunner) validateAndReadFile(file string, stats *models.Execu
 		return nil, false
 	}
 
-	if !dryRunner.utils.canWriteFile(file) {
+	if !dryRunner.utils.CanWriteFile(file) {
 		dryRunner.fail("permission denied: "+file, stats)
 		return nil, false
 	}

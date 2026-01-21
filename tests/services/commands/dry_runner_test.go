@@ -8,11 +8,12 @@ import (
 
 	"github.com/albertoboccolini/sqd/models"
 	"github.com/albertoboccolini/sqd/services"
+	"github.com/albertoboccolini/sqd/services/commands"
 )
 
 func TestValidateTransactionModeStopsOnFirstError(t *testing.T) {
 	utils := services.NewUtils()
-	dryRunner := services.NewDryRunner(utils)
+	dryRunner := commands.NewDryRunner(utils)
 
 	pattern := regexp.MustCompile("test")
 	command := models.Command{
@@ -40,7 +41,7 @@ func TestValidateNonTransactionModeContinuesAfterError(t *testing.T) {
 	defer os.Remove(validFile)
 
 	utils := services.NewUtils()
-	dryRunner := services.NewDryRunner(utils)
+	dryRunner := commands.NewDryRunner(utils)
 	pattern := regexp.MustCompile("content")
 	command := models.Command{
 		Action:  models.UPDATE,
@@ -65,7 +66,7 @@ func TestValidatePermissionDenied(t *testing.T) {
 	defer os.Remove(testFile)
 
 	utils := services.NewUtils()
-	dryRunner := services.NewDryRunner(utils)
+	dryRunner := commands.NewDryRunner(utils)
 
 	pattern := regexp.MustCompile("content")
 	command := models.Command{
