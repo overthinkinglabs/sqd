@@ -40,6 +40,7 @@ func (searcher *Searcher) Count(files []string, pattern *regexp.Regexp) (int, mo
 				count++
 			}
 		}
+
 		return count, nil
 	}, &stats)
 
@@ -61,6 +62,7 @@ func (searcher *Searcher) Select(files []string, pattern *regexp.Regexp) models.
 				fmt.Printf("%s:%d: %s\n", file, i+1, line)
 			}
 		}
+
 		return nil
 	}, &stats)
 

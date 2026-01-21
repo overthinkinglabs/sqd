@@ -18,33 +18,6 @@ func NewDryRunner(utils *services.Utils) *DryRunner {
 	return &DryRunner{utils: utils}
 }
 
-func (dryRunner *DryRunner) Validate(command models.Command, files []string, stats *models.ExecutionStats, useTransaction bool) bool {
-	total := 0
-
-	for _, file := range files {
-		count, ok := dryRunner.validateAndCount(file, command, stats)
-		if !ok {
-			if useTransaction {
-				return false
-			}
-
-			continue
-		}
-
-		total += count
-		stats.Processed++
-	}
-
-	if command.Action == models.UPDATE {
-		dryRunner.utils.PrintUpdateMessage(total)
-	} else {
-		fmt.Printf("Deleted: %d lines\n", total)
-	}
-
-	dryRunner.utils.PrintStats(*stats)
-	return true
-}
-
 func (dryRunner *DryRunner) validateAndCount(file string, command models.Command, stats *models.ExecutionStats) (int, bool) {
 	lines, ok := dryRunner.validateAndReadFile(file, stats)
 	if !ok {
@@ -155,4 +128,31 @@ func (dryRunner *DryRunner) validateAndReadFile(file string, stats *models.Execu
 func (dryRunner *DryRunner) fail(msg string, stats *models.ExecutionStats) {
 	fmt.Fprintf(os.Stderr, "%s\n", msg)
 	stats.Skipped++
+}
+
+func (dryRunner *DryRunner) Validate(command models.Command, files []string, stats *models.ExecutionStats, useTransaction bool) bool {
+	total := 0
+
+	for _, file := range files {
+		count, ok := dryRunner.validateAndCount(file, command, stats)
+		if !ok {
+			if useTransaction {
+				return false
+			}
+
+			continue
+		}
+
+		total += count
+		stats.Processed++
+	}
+
+	if command.Action == models.UPDATE {
+		dryRunner.utils.PrintUpdateMessage(total)
+	} else {
+		fmt.Printf("Deleted: %d lines\n", total)
+	}
+
+	dryRunner.utils.PrintStats(*stats)
+	return true
 }

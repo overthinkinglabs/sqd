@@ -20,7 +20,7 @@ func NewDeleter(processor *files.Processor, utils *services.Utils) *Deleter {
 	}
 }
 
-func (deleter *Deleter) DeleteSingle(file string, pattern *regexp.Regexp) (int, error) {
+func (deleter *Deleter) Single(file string, pattern *regexp.Regexp) (int, error) {
 	return deleter.processor.ProcessFile(file, func(lines []string) ([]string, int) {
 		filtered := []string{}
 		count := 0
@@ -35,7 +35,7 @@ func (deleter *Deleter) DeleteSingle(file string, pattern *regexp.Regexp) (int, 
 	})
 }
 
-func (deleter *Deleter) DeleteBatch(file string, deletions []models.Deletion) (int, error) {
+func (deleter *Deleter) Batch(file string, deletions []models.Deletion) (int, error) {
 	return deleter.processor.ProcessFile(file, func(lines []string) ([]string, int) {
 		filtered := []string{}
 		count := 0

@@ -24,6 +24,11 @@ func (processor *Processor) ProcessFile(filename string, transformFunc func([]st
 		return 0, fmt.Errorf("permission denied")
 	}
 
+	info, err := os.Stat(filename)
+	if err != nil {
+		return 0, err
+	}
+
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return 0, err
@@ -33,7 +38,7 @@ func (processor *Processor) ProcessFile(filename string, transformFunc func([]st
 	newLines, count := transformFunc(lines)
 
 	if count > 0 {
-		err = os.WriteFile(filename, []byte(strings.Join(newLines, "\n")), 0644)
+		err = os.WriteFile(filename, []byte(strings.Join(newLines, "\n")), info.Mode().Perm())
 		if err != nil {
 			return 0, err
 		}

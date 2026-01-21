@@ -84,15 +84,15 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			var updateFunc func(string) (int, error)
 			if command.IsBatch {
 				updateFunc = func(file string) (int, error) {
-					return dispatcher.updater.UpdateBatch(file, command.Replacements)
+					return dispatcher.updater.Batch(file, command.Replacements)
 				}
 			} else {
 				updateFunc = func(file string) (int, error) {
-					return dispatcher.updater.UpdateSingle(file, command.Pattern, command.Replace)
+					return dispatcher.updater.Single(file, command.Pattern, command.Replace)
 				}
 			}
 
-			total := dispatcher.transactioner.ExecuteUpdateTransaction(files, updateFunc, &stats)
+			total := dispatcher.transactioner.Update(files, updateFunc, &stats)
 			dispatcher.utils.PrintUpdateMessage(total)
 			dispatcher.utils.PrintStats(stats)
 			return
@@ -104,9 +104,9 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			var err error
 
 			if command.IsBatch {
-				count, err = dispatcher.updater.UpdateBatch(file, command.Replacements)
+				count, err = dispatcher.updater.Batch(file, command.Replacements)
 			} else {
-				count, err = dispatcher.updater.UpdateSingle(file, command.Pattern, command.Replace)
+				count, err = dispatcher.updater.Single(file, command.Pattern, command.Replace)
 			}
 
 			if err != nil {
@@ -138,15 +138,15 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			var deleteFunc func(string) (int, error)
 			if command.IsBatch {
 				deleteFunc = func(file string) (int, error) {
-					return dispatcher.deleter.DeleteBatch(file, command.Deletions)
+					return dispatcher.deleter.Batch(file, command.Deletions)
 				}
 			} else {
 				deleteFunc = func(file string) (int, error) {
-					return dispatcher.deleter.DeleteSingle(file, command.Pattern)
+					return dispatcher.deleter.Single(file, command.Pattern)
 				}
 			}
 
-			total := dispatcher.transactioner.ExecuteDeleteTransaction(files, deleteFunc, &stats)
+			total := dispatcher.transactioner.Delete(files, deleteFunc, &stats)
 			fmt.Printf("Deleted: %d lines\n", total)
 			dispatcher.utils.PrintStats(stats)
 			return
@@ -158,9 +158,9 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			var err error
 
 			if command.IsBatch {
-				count, err = dispatcher.deleter.DeleteBatch(file, command.Deletions)
+				count, err = dispatcher.deleter.Batch(file, command.Deletions)
 			} else {
-				count, err = dispatcher.deleter.DeleteSingle(file, command.Pattern)
+				count, err = dispatcher.deleter.Single(file, command.Pattern)
 			}
 
 			if err != nil {

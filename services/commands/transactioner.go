@@ -21,7 +21,28 @@ type fileBackup struct {
 	backup   string
 }
 
-func (transactioner *Transactioner) ExecuteUpdateTransaction(files []string,
+func (transactioner *Transactioner) checkFilesBeforeTransaction(files []string) {
+	for _, file := range files {
+		if !transactioner.utils.IsPathInsideCwd(file) {
+			fmt.Fprintf(os.Stderr, "Transaction failed: invalid path %s\n", file)
+			os.Exit(1)
+		}
+		if !transactioner.utils.CanWriteFile(file) {
+			fmt.Fprintf(os.Stderr, "Transaction failed: cannot write %s\n", file)
+			os.Exit(1)
+		}
+	}
+}
+
+func (transactioner *Transactioner) rollbackFiles(backups []fileBackup) {
+	for _, backup := range backups {
+		if err := os.Rename(backup.backup, backup.original); err != nil {
+			fmt.Fprintf(os.Stderr, "Rollback failed for %s -> %s: %v\n", backup.backup, backup.original, err)
+		}
+	}
+}
+
+func (transactioner *Transactioner) Update(files []string,
 	updateFunc func(string) (int, error), stats *models.ExecutionStats) int {
 
 	transactioner.checkFilesBeforeTransaction(files)
@@ -57,28 +78,7 @@ func (transactioner *Transactioner) ExecuteUpdateTransaction(files []string,
 	return total
 }
 
-func (transactioner *Transactioner) checkFilesBeforeTransaction(files []string) {
-	for _, file := range files {
-		if !transactioner.utils.IsPathInsideCwd(file) {
-			fmt.Fprintf(os.Stderr, "Transaction failed: invalid path %s\n", file)
-			os.Exit(1)
-		}
-		if !transactioner.utils.CanWriteFile(file) {
-			fmt.Fprintf(os.Stderr, "Transaction failed: cannot write %s\n", file)
-			os.Exit(1)
-		}
-	}
-}
-
-func (transactioner *Transactioner) rollbackFiles(backups []fileBackup) {
-	for _, backup := range backups {
-		if err := os.Rename(backup.backup, backup.original); err != nil {
-			fmt.Fprintf(os.Stderr, "Rollback failed for %s -> %s: %v\n", backup.backup, backup.original, err)
-		}
-	}
-}
-
-func (transactioner *Transactioner) ExecuteDeleteTransaction(files []string,
+func (transactioner *Transactioner) Delete(files []string,
 	deleteFunc func(string) (int, error), stats *models.ExecutionStats) int {
 	transactioner.checkFilesBeforeTransaction(files)
 	backups := make([]fileBackup, 0, len(files))

@@ -20,7 +20,7 @@ func NewUpdater(processor *files.Processor, utils *services.Utils) *Updater {
 	}
 }
 
-func (updater *Updater) UpdateSingle(file string, pattern *regexp.Regexp, replace string) (int, error) {
+func (updater *Updater) Single(file string, pattern *regexp.Regexp, replace string) (int, error) {
 	return updater.processor.ProcessFile(file, func(lines []string) ([]string, int) {
 		count := 0
 		for i, line := range lines {
@@ -33,7 +33,7 @@ func (updater *Updater) UpdateSingle(file string, pattern *regexp.Regexp, replac
 	})
 }
 
-func (updater *Updater) UpdateBatch(file string, replacements []models.Replacement) (int, error) {
+func (updater *Updater) Batch(file string, replacements []models.Replacement) (int, error) {
 	return updater.processor.ProcessFile(file, func(lines []string) ([]string, int) {
 		count := 0
 		for i, line := range lines {
