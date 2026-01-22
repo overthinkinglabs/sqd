@@ -47,6 +47,14 @@ func (sqlParser *SQLParser) Validate(sql string) error {
 		return fmt.Errorf("DELETE query must contain FROM clause")
 	}
 
+	if strings.HasPrefix(upperSql, "UPDATE") {
+		hasSetContent := strings.Contains(upperSql, "SET CONTENT")
+		hasWhereName := strings.Contains(upperSql, "WHERE NAME")
+		if hasSetContent && hasWhereName {
+			return fmt.Errorf("SET content with WHERE name is not allowed")
+		}
+	}
+
 	return nil
 }
 
@@ -55,6 +63,9 @@ func (sqlParser *SQLParser) Parse(sql string) models.Command {
 	upperSql := strings.ToUpper(sql)
 
 	var command models.Command
+	command.WhereTarget = models.Content
+	command.SetTarget = models.Content
+	command.SelectTarget = models.ALL
 
 	if strings.HasPrefix(upperSql, "SELECT COUNT") {
 		command.Action = models.COUNT
@@ -64,11 +75,13 @@ func (sqlParser *SQLParser) Parse(sql string) models.Command {
 	if strings.HasPrefix(upperSql, "SELECT") && !strings.HasPrefix(upperSql, "SELECT COUNT") {
 		command.Action = models.SELECT
 		command.File = sqlParser.extractBetween(sql, "FROM", "WHERE")
+		command.SelectTarget = sqlParser.detectSelectTarget(upperSql)
 	}
 
 	if strings.HasPrefix(upperSql, "UPDATE") {
 		command.Action = models.UPDATE
 		command.File = sqlParser.extractBetween(sql, "UPDATE", "SET")
+		command.SetTarget = sqlParser.detectSetTarget(upperSql)
 	}
 
 	if strings.HasPrefix(upperSql, "DELETE") {
@@ -77,6 +90,7 @@ func (sqlParser *SQLParser) Parse(sql string) models.Command {
 	}
 
 	command.File = strings.TrimSpace(command.File)
+	command.WhereTarget = sqlParser.detectWhereTarget(upperSql)
 
 	if command.Action == models.UPDATE && strings.Count(upperSql, "SET CONTENT=") > 1 {
 		command.IsBatch = true
@@ -84,45 +98,94 @@ func (sqlParser *SQLParser) Parse(sql string) models.Command {
 		return command
 	}
 
-	if command.Action == models.DELETE && strings.Count(upperSql, "WHERE CONTENT =") > 1 {
+	if command.Action == models.DELETE && strings.Count(upperSql, "WHERE") > 1 {
 		command.IsBatch = true
 		command.Deletions = sqlParser.parseBatchDeletions(sql)
 		return command
 	}
 
-	if strings.Contains(upperSql, "WHERE CONTENT") {
-		whereContentRegex := regexp.MustCompile(`(?i)WHERE\s+content\s*=\s*`)
-		loc := whereContentRegex.FindStringIndex(sql)
-		if loc != nil {
-			command.MatchExact = true
-			exactMatch := strings.TrimSpace(sql[loc[1]:])
-			exactMatch = strings.Trim(exactMatch, " '\"")
-			command.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
-		}
-	}
-
-	if strings.Contains(upperSql, "WHERE CONTENT LIKE") {
-		command.MatchExact = false
-		likePattern := sqlParser.extractAfter(sql, "LIKE")
-		likePattern = strings.Trim(likePattern, " '\"")
-		command.Pattern = sqlParser.likeToRegex(likePattern)
-	}
+	sqlParser.parseWhereClause(sql, &command)
 
 	if command.Action == models.UPDATE {
-		setContentRegex := regexp.MustCompile(`(?i)SET\s+content\s*=\s*`)
-		whereIdx := strings.Index(upperSql, "WHERE")
-		if whereIdx == -1 {
-			whereIdx = len(sql)
+		if command.SetTarget == models.Name {
+			setNameRegex := regexp.MustCompile(`(?i)SET\s+name\s*=\s*['"]([^'"]*)['""]`)
+			if matches := setNameRegex.FindStringSubmatch(sql); matches != nil {
+				command.Replace = matches[1]
+			}
 		}
+		if command.SetTarget == models.Content {
+			setContentRegex := regexp.MustCompile(`(?i)SET\s+content\s*=\s*`)
+			whereIdx := strings.Index(upperSql, "WHERE")
+			if whereIdx == -1 {
+				whereIdx = len(sql)
+			}
 
-		loc := setContentRegex.FindStringIndex(sql)
-		if loc != nil {
-			command.Replace = strings.TrimSpace(sql[loc[1]:whereIdx])
-			command.Replace = strings.Trim(command.Replace, "'\"")
+			loc := setContentRegex.FindStringIndex(sql)
+			if loc != nil {
+				command.Replace = strings.TrimSpace(sql[loc[1]:whereIdx])
+				command.Replace = strings.Trim(command.Replace, "'\"")
+			}
 		}
 	}
 
 	return command
+}
+
+func (sqlParser *SQLParser) detectSetTarget(upperSql string) models.Filter {
+	if strings.Contains(upperSql, "SET NAME") {
+		return models.Name
+	}
+	return models.Content
+}
+
+func (sqlParser *SQLParser) detectWhereTarget(upperSql string) models.Filter {
+	if strings.Contains(upperSql, "WHERE NAME") {
+		return models.Name
+	}
+	return models.Content
+}
+
+func (sqlParser *SQLParser) detectSelectTarget(upperSql string) models.Select {
+	selectIdx := strings.Index(upperSql, "SELECT")
+	fromIdx := strings.Index(upperSql, "FROM")
+	if selectIdx == -1 || fromIdx == -1 {
+		return models.ALL
+	}
+
+	selectClause := strings.TrimSpace(upperSql[selectIdx+6 : fromIdx])
+
+	if selectClause == "NAME" {
+		return models.NAME
+	}
+	if selectClause == "CONTENT" {
+		return models.CONTENT
+	}
+	return models.ALL
+}
+
+func (sqlParser *SQLParser) parseWhereClause(sql string, command *models.Command) {
+	filterField := "content"
+	if command.WhereTarget == models.Name {
+		filterField = "name"
+	}
+
+	exactRegex := regexp.MustCompile(`(?i)WHERE\s+` + filterField + `\s*=\s*`)
+	likeRegex := regexp.MustCompile(`(?i)WHERE\s+` + filterField + `\s+LIKE\s*`)
+
+	if loc := exactRegex.FindStringIndex(sql); loc != nil {
+		command.MatchExact = true
+		exactMatch := strings.TrimSpace(sql[loc[1]:])
+		exactMatch = strings.Trim(exactMatch, " '\"")
+		command.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+		return
+	}
+
+	if loc := likeRegex.FindStringIndex(sql); loc != nil {
+		command.MatchExact = false
+		likePattern := sqlParser.extractAfter(sql[loc[1]:], "")
+		likePattern = strings.Trim(likePattern, " '\"")
+		command.Pattern = sqlParser.likeToRegex(likePattern)
+	}
 }
 
 func (sqlParser *SQLParser) parseBatchDeletions(sql string) []models.Deletion {
@@ -134,18 +197,43 @@ func (sqlParser *SQLParser) parseBatchDeletions(sql string) []models.Deletion {
 		part = strings.TrimSpace(part)
 		upper := strings.ToUpper(part)
 
-		if !strings.Contains(upper, "WHERE CONTENT =") {
+		whereTarget := models.Content
+		if strings.Contains(upper, "WHERE NAME") {
+			whereTarget = models.Name
+		}
+
+		filterField := "content"
+		if whereTarget == models.Name {
+			filterField = "name"
+		}
+
+		exactPattern := `(?i)WHERE\s+` + filterField + `\s*=\s*`
+		likePattern := `(?i)WHERE\s+` + filterField + `\s+LIKE\s*`
+
+		if !regexp.MustCompile(exactPattern).MatchString(part) && !regexp.MustCompile(likePattern).MatchString(part) {
 			continue
 		}
 
 		var del models.Deletion
-		del.MatchExact = true
+		del.WhereTarget = whereTarget
 
-		exactMatch := sqlParser.extractAfter(part, "WHERE content =")
-		exactMatch = strings.Trim(exactMatch, " '\"")
-		del.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+		if regexp.MustCompile(exactPattern).MatchString(part) {
+			del.MatchExact = true
+			exactMatch := sqlParser.extractAfter(part, "WHERE "+filterField+" =")
+			exactMatch = strings.Trim(exactMatch, " '\"")
+			del.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+		}
 
-		deletions = append(deletions, del)
+		if regexp.MustCompile(likePattern).MatchString(part) {
+			del.MatchExact = false
+			likeValue := sqlParser.extractAfter(part, "LIKE")
+			likeValue = strings.Trim(likeValue, " '\"")
+			del.Pattern = sqlParser.likeToRegex(likeValue)
+		}
+
+		if del.Pattern != nil {
+			deletions = append(deletions, del)
+		}
 	}
 
 	return deletions
@@ -160,24 +248,51 @@ func (sqlParser *SQLParser) parseBatchReplacements(sql string) []models.Replacem
 		part = strings.TrimSpace(part)
 		upperPart := strings.ToUpper(part)
 
-		if !strings.Contains(upperPart, "SET CONTENT=") {
+		if !strings.Contains(upperPart, "SET CONTENT=") && !strings.Contains(upperPart, "SET NAME=") {
 			continue
 		}
 
 		var repl models.Replacement
+		repl.SetTarget = models.Content
+		repl.WhereTarget = models.Content
 
-		replaceValue := sqlParser.extractBetween(part, "SET content=", "WHERE")
-		replaceValue = strings.Trim(replaceValue, " '\"")
-		repl.Replace = replaceValue
+		if strings.Contains(upperPart, "SET NAME=") || strings.Contains(upperPart, "SET NAME =") {
+			repl.SetTarget = models.Name
+		}
 
-		if strings.Contains(upperPart, "WHERE CONTENT =") {
+		if strings.Contains(upperPart, "WHERE NAME") {
+			repl.WhereTarget = models.Name
+		}
+
+		if repl.SetTarget == models.Content && repl.WhereTarget == models.Name {
+			continue
+		}
+
+		if repl.SetTarget == models.Name {
+			setNameRegex := regexp.MustCompile(`(?i)SET\s+name\s*=\s*'([^']*)'`)
+			if matches := setNameRegex.FindStringSubmatch(part); matches != nil {
+				repl.Replace = matches[1]
+			}
+		}
+		if repl.SetTarget == models.Content {
+			replaceValue := sqlParser.extractBetween(part, "SET content=", "WHERE")
+			replaceValue = strings.Trim(replaceValue, " '\"")
+			repl.Replace = replaceValue
+		}
+
+		filterField := "content"
+		if repl.WhereTarget == models.Name {
+			filterField = "name"
+		}
+
+		if strings.Contains(upperPart, "WHERE "+strings.ToUpper(filterField)+" =") {
 			repl.MatchExact = true
-			exactMatch := sqlParser.extractAfter(part, "WHERE content =")
+			exactMatch := sqlParser.extractAfter(part, "WHERE "+filterField+" =")
 			exactMatch = strings.Trim(exactMatch, " '\"")
 			repl.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
 		}
 
-		if strings.Contains(upperPart, "WHERE CONTENT LIKE") {
+		if strings.Contains(upperPart, "WHERE "+strings.ToUpper(filterField)+" LIKE") {
 			repl.MatchExact = false
 			likePattern := sqlParser.extractAfter(part, "LIKE")
 			likePattern = strings.Trim(likePattern, " '\"")
@@ -211,6 +326,10 @@ func (sqlParser *SQLParser) extractBetween(query, start, end string) string {
 }
 
 func (sqlParser *SQLParser) extractAfter(query, marker string) string {
+	if marker == "" {
+		return strings.TrimSpace(query)
+	}
+
 	markerUpper := strings.ToUpper(marker)
 	upperQuery := strings.ToUpper(query)
 

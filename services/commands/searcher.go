@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -24,10 +25,17 @@ func NewSearcher(parallelizer *files.Parallelizer, utils *services.Utils) *Searc
 	}
 }
 
-func (searcher *Searcher) Count(files []string, pattern *regexp.Regexp) (int, models.ExecutionStats) {
+func (searcher *Searcher) Count(files []string, pattern *regexp.Regexp, filterType models.Filter) (int, models.ExecutionStats) {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
 	total := searcher.parallelizer.ProcessFilesInParallel(files, func(file string) (int, error) {
+		if filterType == models.Name {
+			if pattern.MatchString(filepath.Base(file)) {
+				return 1, nil
+			}
+			return 0, nil
+		}
+
 		data, err := os.ReadFile(file)
 		if err != nil {
 			return 0, err
@@ -47,10 +55,37 @@ func (searcher *Searcher) Count(files []string, pattern *regexp.Regexp) (int, mo
 	return total, stats
 }
 
-func (searcher *Searcher) Select(files []string, pattern *regexp.Regexp) models.ExecutionStats {
+func (searcher *Searcher) Select(files []string, pattern *regexp.Regexp, filterType models.Filter, selectTarget models.Select) models.ExecutionStats {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
 	searcher.parallelizer.ProcessFilesInParallelNoCount(files, func(file string) error {
+		if filterType == models.Name {
+			if !pattern.MatchString(filepath.Base(file)) {
+				return nil
+			}
+
+			if selectTarget == models.NAME {
+				fmt.Printf("%s\n", file)
+				return nil
+			}
+
+			if selectTarget == models.CONTENT {
+				data, err := os.ReadFile(file)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("%s", string(data))
+				return nil
+			}
+
+			data, err := os.ReadFile(file)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s:\n%s\n", file, string(data))
+			return nil
+		}
+
 		data, err := os.ReadFile(file)
 		if err != nil {
 			return err
@@ -59,6 +94,14 @@ func (searcher *Searcher) Select(files []string, pattern *regexp.Regexp) models.
 		lines := strings.Split(string(data), "\n")
 		for i, line := range lines {
 			if pattern.MatchString(line) {
+				if selectTarget == models.NAME {
+					fmt.Printf("%s\n", file)
+					return nil
+				}
+				if selectTarget == models.CONTENT {
+					fmt.Printf("%s\n", line)
+					continue
+				}
 				fmt.Printf("%s:%d: %s\n", file, i+1, line)
 			}
 		}

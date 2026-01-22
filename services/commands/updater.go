@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"path/filepath"
 	"regexp"
 
 	"github.com/albertoboccolini/sqd/models"
@@ -36,12 +37,19 @@ func (updater *Updater) Single(file string, pattern *regexp.Regexp, replace stri
 func (updater *Updater) Batch(file string, replacements []models.Replacement) (int, error) {
 	return updater.processor.ProcessFile(file, func(lines []string) ([]string, int) {
 		count := 0
-		for i, line := range lines {
-			for _, replacement := range replacements {
-				if replacement.Pattern.MatchString(line) {
-					lines[i] = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
-					count++
-					break
+		filename := filepath.Base(file)
+
+		for _, replacement := range replacements {
+			if replacement.WhereTarget == models.Name && !replacement.Pattern.MatchString(filename) {
+				continue
+			}
+
+			if replacement.WhereTarget == models.Content {
+				for i, line := range lines {
+					if replacement.Pattern.MatchString(line) {
+						lines[i] = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
+						count++
+					}
 				}
 			}
 		}
