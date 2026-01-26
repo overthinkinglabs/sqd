@@ -14,6 +14,31 @@ func NewSQLParser() *SQLParser {
 	return &SQLParser{}
 }
 
+func (sqlParser *SQLParser) detectSelectTarget(sql string) models.Select {
+	upper := strings.ToUpper(sql)
+	selectIdx := strings.Index(upper, "SELECT")
+	fromIdx := strings.Index(upper, "FROM")
+	if selectIdx == -1 || fromIdx == -1 {
+		return models.ALL
+	}
+
+	selectClause := strings.TrimSpace(sql[selectIdx+6 : fromIdx])
+	selectClauseLower := strings.ToLower(selectClause)
+
+	if strings.HasPrefix(selectClauseLower, "count(") && strings.HasSuffix(selectClauseLower, ")") {
+		selectClauseLower = strings.TrimSuffix(strings.TrimPrefix(selectClauseLower, "count("), ")")
+	}
+
+	switch selectClauseLower {
+	case "name":
+		return models.NAME
+	case "content":
+		return models.CONTENT
+	default:
+		return models.ALL
+	}
+}
+
 func (sqlParser *SQLParser) Validate(sql string) error {
 	sql = strings.TrimSpace(sql)
 	if sql == "" {
@@ -55,15 +80,18 @@ func (sqlParser *SQLParser) Parse(sql string) models.Command {
 	upperSql := strings.ToUpper(sql)
 
 	var command models.Command
+	command.SelectTarget = models.ALL
 
 	if strings.HasPrefix(upperSql, "SELECT COUNT") {
 		command.Action = models.COUNT
 		command.File = sqlParser.extractBetween(sql, "FROM", "WHERE")
+		command.SelectTarget = sqlParser.detectSelectTarget(sql)
 	}
 
 	if strings.HasPrefix(upperSql, "SELECT") && !strings.HasPrefix(upperSql, "SELECT COUNT") {
 		command.Action = models.SELECT
 		command.File = sqlParser.extractBetween(sql, "FROM", "WHERE")
+		command.SelectTarget = sqlParser.detectSelectTarget(sql)
 	}
 
 	if strings.HasPrefix(upperSql, "UPDATE") {
