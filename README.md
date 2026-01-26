@@ -23,7 +23,7 @@ This project requires **Go version 1.25.4 or higher**. Make sure you have a comp
 Count all the LaTeX formulas in your notes
 
 ```bash
-sqd 'SELECT count(*) FROM * WHERE content LIKE "%$$"'
+sqd 'SELECT COUNT(*) FROM *.md WHERE content LIKE "$$%"'
 ```
 
 Refactor your markdown title hierarchy
@@ -35,8 +35,31 @@ sqd 'UPDATE *.md SET content="### " WHERE content LIKE "## %"'
 Remove all DEBUG logs
 
 ```bash
-sqd "DELETE FROM *.log WHERE content LIKE '%DEBUG%'"
+sqd 'DELETE FROM *.log WHERE content LIKE "%DEBUG%"'
 ```
+
+## Columns
+
+You can reference the following columns in the `SELECT` clause:
+
+* `name`: the file name.
+* `content`: the content of each line.
+* `*`: both file name and content.
+
+Examples:
+
+```bash
+sqd 'SELECT COUNT(name) FROM *.md WHERE content LIKE "### %"' 
+# Counts the number of files that contain at least one matching line.
+
+sqd 'SELECT COUNT(content) FROM *.md WHERE content LIKE "### %"' 
+# Counts the total number of matching lines across all files.
+```
+
+## Flags
+
+* `-d`, `--dry-run`: Display the actions that would be performed without modifying any files.
+* `-t`, `--transaction`: Apply changes atomically. If any operation fails, all changes are rolled back.
 
 ## The power of sqd
 
