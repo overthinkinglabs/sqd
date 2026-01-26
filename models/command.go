@@ -13,6 +13,7 @@ type Command struct {
 	Replacements []Replacement
 	Deletions    []Deletion
 	IsBatch      bool
+	SelectTarget Select
 }
 
 type Replacement struct {

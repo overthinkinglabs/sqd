@@ -57,14 +57,14 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 	}
 
 	if command.Action == models.COUNT {
-		total, stats := dispatcher.searcher.Count(files, command.Pattern)
-		fmt.Printf("%d lines matched\n", total)
+		total, stats := dispatcher.searcher.Count(files, command.Pattern, command.SelectTarget)
+		fmt.Printf("%d matches\n", total)
 		dispatcher.utils.PrintStats(stats)
 		return
 	}
 
 	if command.Action == models.SELECT {
-		stats := dispatcher.searcher.Select(files, command.Pattern)
+		stats := dispatcher.searcher.Select(files, command.Pattern, command.SelectTarget)
 		dispatcher.utils.PrintStats(stats)
 		return
 	}
