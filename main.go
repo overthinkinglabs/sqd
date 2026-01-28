@@ -45,7 +45,7 @@ func executeQueriesFromFile(filePath string, useTransaction, dryRun bool) {
 		if query == "" {
 			continue
 		}
-		fmt.Printf("Executing query: %s\n", query)
+		fmt.Printf("%s\n", query)
 		executeQuery(query, useTransaction, dryRun)
 	}
 

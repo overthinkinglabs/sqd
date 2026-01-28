@@ -258,27 +258,18 @@ func (sqlParser *SQLParser) likeToRegex(pattern string) *regexp.Regexp {
 		pattern = pattern[1:]
 	}
 
-	if hasEnd {
+	if hasEnd && len(pattern) > 0 {
 		pattern = pattern[:len(pattern)-1]
 	}
 
-	hadTrailingSpace := hasEnd && strings.HasSuffix(pattern, " ")
-
-	if hasEnd {
-		pattern = strings.TrimRight(pattern, " ")
-	}
-	if hasStart {
-		pattern = strings.TrimLeft(pattern, " ")
+	if pattern == "" {
+		return regexp.MustCompile(".*")
 	}
 
 	pattern = regexp.QuoteMeta(pattern)
 
 	if !hasStart && hasEnd {
-		if hadTrailingSpace {
-			pattern = "^" + pattern + " "
-		} else {
-			pattern = "^" + pattern
-		}
+		pattern = "^" + pattern
 	}
 
 	if hasStart && !hasEnd {
