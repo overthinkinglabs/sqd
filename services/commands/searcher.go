@@ -123,7 +123,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 
 	if command.SelectTarget == models.NAME && command.WhereTarget == models.WHERE_NAME {
 		for _, file := range files {
-			fmt.Printf("%s\n", file)
+			fmt.Printf("%s\n", searcher.utils.HighlightName(file, command.WherePattern))
 		}
 
 		stats.Processed = len(files)
@@ -144,7 +144,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 				case models.CONTENT:
 					fmt.Printf("%s\n", line)
 				case models.ALL:
-					fmt.Printf("%s:%d: %s\n", file, i+1, line)
+					fmt.Printf("%s:%d: %s\n", searcher.utils.HighlightName(file, command.WherePattern), i+1, line)
 				}
 			}
 			stats.Processed++
@@ -165,15 +165,15 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 				matched = true
 				switch command.SelectTarget {
 				case models.CONTENT:
-					fmt.Printf("%s\n", line)
+					fmt.Printf("%s\n", searcher.utils.HighlightMatch(line, command.Pattern))
 				case models.ALL:
-					fmt.Printf("%s:%d: %s\n", file, i+1, line)
+					fmt.Printf("%s:%d: %s\n", file, i+1, searcher.utils.HighlightMatch(line, command.Pattern))
 				}
 			}
 		}
 
 		if matched && command.SelectTarget == models.NAME {
-			fmt.Printf("%s\n", file)
+			fmt.Printf("%s\n", searcher.utils.HighlightName(file, command.Pattern))
 		}
 		return nil
 	}, &stats)
