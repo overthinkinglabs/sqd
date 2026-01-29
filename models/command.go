@@ -14,6 +14,8 @@ type Command struct {
 	Deletions    []Deletion
 	IsBatch      bool
 	SelectTarget Select
+	WhereTarget  WhereTarget
+	WherePattern *regexp.Regexp
 }
 
 type Replacement struct {
