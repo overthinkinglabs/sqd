@@ -28,10 +28,3 @@ type Deletion struct {
 	Pattern    *regexp.Regexp
 	MatchExact bool
 }
-
-type WhereTarget int
-
-const (
-	WHERE_CONTENT WhereTarget = iota
-	WHERE_NAME
-)

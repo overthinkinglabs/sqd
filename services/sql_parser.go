@@ -126,7 +126,9 @@ func (sqlParser *SQLParser) Parse(sql string) models.Command {
 			exactMatch := sqlParser.extractAfter(sql, "WHERE name =")
 			exactMatch = strings.Trim(exactMatch, " '\"")
 			command.WherePattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
-		} else if strings.Contains(upperSql, "WHERE NAME LIKE") {
+		}
+
+		if strings.Contains(upperSql, "WHERE NAME LIKE") {
 			likePattern := sqlParser.extractAfter(sql, "WHERE name LIKE")
 			likePattern = strings.Trim(likePattern, " '\"")
 			command.WherePattern = sqlParser.likeToRegex(likePattern)
