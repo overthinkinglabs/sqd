@@ -43,10 +43,12 @@ func NewDispatcher(
 func (dispatcher *Dispatcher) Execute(command models.Command, files []string, useTransaction bool, dryRun bool) {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
-	if command.Pattern == nil && ((command.Action == models.SELECT ||
-		command.Action == models.COUNT ||
-		command.Action == models.UPDATE ||
-		command.Action == models.DELETE) && !command.IsBatch) {
+	if command.Pattern == nil &&
+		command.WherePattern == nil &&
+		((command.Action == models.SELECT ||
+			command.Action == models.COUNT ||
+			command.Action == models.UPDATE ||
+			command.Action == models.DELETE) && !command.IsBatch) {
 		fmt.Fprintf(os.Stderr, "Error: Invalid query pattern\n")
 		return
 	}
@@ -57,14 +59,14 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 	}
 
 	if command.Action == models.COUNT {
-		total, stats := dispatcher.searcher.Count(files, command.Pattern, command.SelectTarget)
+		total, stats := dispatcher.searcher.Count(files, command)
 		fmt.Printf("%d matches\n", total)
 		dispatcher.utils.PrintStats(stats)
 		return
 	}
 
 	if command.Action == models.SELECT {
-		stats := dispatcher.searcher.Select(files, command.Pattern, command.SelectTarget)
+		stats := dispatcher.searcher.Select(files, command)
 		dispatcher.utils.PrintStats(stats)
 		return
 	}

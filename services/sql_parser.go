@@ -81,6 +81,7 @@ func (sqlParser *SQLParser) Parse(sql string) models.Command {
 
 	var command models.Command
 	command.SelectTarget = models.ALL
+	command.WhereTarget = models.WHERE_CONTENT
 
 	if strings.HasPrefix(upperSql, "SELECT COUNT") {
 		command.Action = models.COUNT
@@ -115,6 +116,22 @@ func (sqlParser *SQLParser) Parse(sql string) models.Command {
 	if command.Action == models.DELETE && strings.Count(upperSql, "WHERE CONTENT =") > 1 {
 		command.IsBatch = true
 		command.Deletions = sqlParser.parseBatchDeletions(sql)
+		return command
+	}
+
+	if strings.Contains(upperSql, "WHERE NAME") {
+		command.WhereTarget = models.WHERE_NAME
+
+		if strings.Contains(upperSql, "WHERE NAME =") {
+			exactMatch := sqlParser.extractAfter(sql, "WHERE name =")
+			exactMatch = strings.Trim(exactMatch, " '\"")
+			command.WherePattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+		} else if strings.Contains(upperSql, "WHERE NAME LIKE") {
+			likePattern := sqlParser.extractAfter(sql, "WHERE name LIKE")
+			likePattern = strings.Trim(likePattern, " '\"")
+			command.WherePattern = sqlParser.likeToRegex(likePattern)
+		}
+
 		return command
 	}
 

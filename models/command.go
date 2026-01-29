@@ -14,6 +14,8 @@ type Command struct {
 	Deletions    []Deletion
 	IsBatch      bool
 	SelectTarget Select
+	WhereTarget  WhereTarget
+	WherePattern *regexp.Regexp
 }
 
 type Replacement struct {
@@ -26,3 +28,10 @@ type Deletion struct {
 	Pattern    *regexp.Regexp
 	MatchExact bool
 }
+
+type WhereTarget int
+
+const (
+	WHERE_CONTENT WhereTarget = iota
+	WHERE_NAME
+)
