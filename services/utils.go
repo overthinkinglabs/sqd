@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -44,6 +45,16 @@ func (utils *Utils) IsPathInsideCwd(path string) bool {
 	return true
 }
 
+func (utils *Utils) CanWriteFile(path string) bool {
+	file, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		return false
+	}
+
+	file.Close()
+	return true
+}
+
 func (utils *Utils) PrintUpdateMessage(count int) {
 	if count == 1 {
 		fmt.Println("1 line updated")
@@ -65,12 +76,15 @@ func (utils *Utils) PrintStats(stats models.ExecutionStats) {
 	}
 }
 
-func (utils *Utils) CanWriteFile(path string) bool {
-	file, err := os.OpenFile(path, os.O_WRONLY, 0)
-	if err != nil {
-		return false
-	}
+func (utils *Utils) HighlightMatch(text string, pattern *regexp.Regexp) string {
+	return pattern.ReplaceAllStringFunc(text, func(match string) string {
+		return "\033[1;34m" + match + "\033[0m"
+	})
+}
 
-	file.Close()
-	return true
+func (utils *Utils) HighlightName(file string, pattern *regexp.Regexp) string {
+	fileName := filepath.Base(file)
+	baseDir := filepath.Dir(file)
+	highlightedName := utils.HighlightMatch(fileName, pattern)
+	return fmt.Sprintf("%s/%s", baseDir, highlightedName)
 }
