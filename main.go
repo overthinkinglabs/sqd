@@ -12,6 +12,7 @@ import (
 	"github.com/albertoboccolini/sqd/services"
 	"github.com/albertoboccolini/sqd/services/commands"
 	"github.com/albertoboccolini/sqd/services/files"
+	"github.com/albertoboccolini/sqd/services/sql"
 )
 
 func splitQueries(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -55,14 +56,16 @@ func executeQueriesFromFile(filePath string, useTransaction, dryRun bool) {
 	}
 }
 
-func executeQuery(sql string, useTransaction, dryRun bool) {
-	sqlParser := services.NewSQLParser()
-	if err := sqlParser.Validate(sql); err != nil {
+func executeQuery(query string, useTransaction, dryRun bool) {
+	validator := sql.NewValidator()
+	if err := validator.Validate(query); err != nil {
 		fmt.Printf("Error: %s\n", err)
 		return
 	}
 
-	command := sqlParser.Parse(sql)
+	extractor := sql.NewExtractor()
+	parser := sql.NewParser(extractor)
+	command := parser.Parse(query)
 
 	utils := services.NewUtils()
 	finder := files.NewFinder()

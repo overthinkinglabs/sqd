@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/services"
+	"github.com/albertoboccolini/sqd/tests/mock"
 )
 
 func TestParseSelect(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("SELECT * FROM test.txt WHERE content LIKE '%foo%'")
+	parser := mock.CreateParser()
+	command := parser.Parse("SELECT * FROM test.txt WHERE content LIKE '%foo%'")
 
 	if command.Action != models.SELECT {
 		t.Fatalf("expected SELECT, got %v", command.Action)
@@ -29,8 +29,8 @@ func TestParseSelect(t *testing.T) {
 }
 
 func TestParseCount(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("SELECT COUNT(*) FROM file.sql WHERE content = 'exact'")
+	parser := mock.CreateParser()
+	command := parser.Parse("SELECT COUNT(*) FROM file.sql WHERE content = 'exact'")
 
 	if command.Action != models.COUNT {
 		t.Fatalf("expected COUNT, got %v", command.Action)
@@ -46,8 +46,8 @@ func TestParseCount(t *testing.T) {
 }
 
 func TestParseUpdate(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("UPDATE file.txt SET content='new' WHERE content = 'old'")
+	parser := mock.CreateParser()
+	command := parser.Parse("UPDATE file.txt SET content='new' WHERE content = 'old'")
 
 	if command.Action != models.UPDATE {
 		t.Fatalf("expected UPDATE, got %v", command.Action)
@@ -67,8 +67,8 @@ func TestParseUpdate(t *testing.T) {
 }
 
 func TestParseDelete(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("DELETE FROM file.txt WHERE content = 'remove'")
+	parser := mock.CreateParser()
+	command := parser.Parse("DELETE FROM file.txt WHERE content = 'remove'")
 
 	if command.Action != models.DELETE {
 		t.Fatalf("expected DELETE, got %v", command.Action)
@@ -80,8 +80,8 @@ func TestParseDelete(t *testing.T) {
 }
 
 func TestParseBatchUpdate(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("UPDATE file.txt SET content='a' WHERE content = 'x', SET content='b' WHERE content = 'y'")
+	parser := mock.CreateParser()
+	command := parser.Parse("UPDATE file.txt SET content='a' WHERE content = 'x', SET content='b' WHERE content = 'y'")
 
 	if !command.IsBatch {
 		t.Fatal("expected batch mode")
@@ -101,8 +101,8 @@ func TestParseBatchUpdate(t *testing.T) {
 }
 
 func TestParseBatchDelete(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("DELETE FROM file.txt WHERE content = 'x', WHERE content = 'y'")
+	parser := mock.CreateParser()
+	command := parser.Parse("DELETE FROM file.txt WHERE content = 'x', WHERE content = 'y'")
 
 	if !command.IsBatch {
 		t.Fatal("expected batch mode")
@@ -114,8 +114,8 @@ func TestParseBatchDelete(t *testing.T) {
 }
 
 func TestLikePatternPrefix(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("SELECT * FROM f WHERE content LIKE '%test'")
+	parser := mock.CreateParser()
+	command := parser.Parse("SELECT * FROM f WHERE content LIKE '%test'")
 
 	if !command.Pattern.MatchString("mytest") {
 		t.Error("should match 'mytest'")
@@ -127,8 +127,8 @@ func TestLikePatternPrefix(t *testing.T) {
 }
 
 func TestLikePatternSuffix(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("SELECT * FROM f WHERE content LIKE 'test%'")
+	parser := mock.CreateParser()
+	command := parser.Parse("SELECT * FROM f WHERE content LIKE 'test%'")
 
 	if !command.Pattern.MatchString("testing") {
 		t.Error("should match 'testing'")
@@ -140,8 +140,8 @@ func TestLikePatternSuffix(t *testing.T) {
 }
 
 func TestLikePatternBoth(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("SELECT * FROM f WHERE content LIKE '%test%'")
+	parser := mock.CreateParser()
+	command := parser.Parse("SELECT * FROM f WHERE content LIKE '%test%'")
 
 	if !command.Pattern.MatchString("mytesting") {
 		t.Error("should match 'mytesting'")
@@ -149,8 +149,8 @@ func TestLikePatternBoth(t *testing.T) {
 }
 
 func TestLikePatternExact(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("SELECT * FROM f WHERE content LIKE 'test'")
+	parser := mock.CreateParser()
+	command := parser.Parse("SELECT * FROM f WHERE content LIKE 'test'")
 
 	if !command.Pattern.MatchString("test") {
 		t.Error("should match 'test'")
@@ -162,8 +162,8 @@ func TestLikePatternExact(t *testing.T) {
 }
 
 func TestExactMatch(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("SELECT * FROM f WHERE content = 'exact'")
+	parser := mock.CreateParser()
+	command := parser.Parse("SELECT * FROM f WHERE content = 'exact'")
 
 	if !command.Pattern.MatchString("exact") {
 		t.Error("should match 'exact'")
@@ -175,8 +175,8 @@ func TestExactMatch(t *testing.T) {
 }
 
 func TestUpdatePreservesSpace(t *testing.T) {
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("UPDATE *.md SET content = '#### ' WHERE content LIKE '### %'")
+	parser := mock.CreateParser()
+	command := parser.Parse("UPDATE *.md SET content = '#### ' WHERE content LIKE '### %'")
 
 	input := "### Title"
 	result := command.Pattern.ReplaceAllString(input, command.Replace)
