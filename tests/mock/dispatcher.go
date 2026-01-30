@@ -4,16 +4,9 @@ import (
 	"github.com/albertoboccolini/sqd/services"
 	"github.com/albertoboccolini/sqd/services/commands"
 	"github.com/albertoboccolini/sqd/services/files"
-	"github.com/albertoboccolini/sqd/services/sql"
 )
 
-func CreateParser() *sql.Parser {
-	extractor := sql.NewExtractor()
-	parser := sql.NewParser(extractor)
-	return parser
-}
-
-func CreateDispatcher() *commands.Dispatcher {
+func NewDispatcher() *commands.Dispatcher {
 	utils := services.NewUtils()
 	processor := files.NewProcessor(utils)
 

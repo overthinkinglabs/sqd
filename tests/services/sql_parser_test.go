@@ -8,7 +8,7 @@ import (
 )
 
 func TestParseSelect(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("SELECT * FROM test.txt WHERE content LIKE '%foo%'")
 
 	if command.Action != models.SELECT {
@@ -29,7 +29,7 @@ func TestParseSelect(t *testing.T) {
 }
 
 func TestParseCount(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("SELECT COUNT(*) FROM file.sql WHERE content = 'exact'")
 
 	if command.Action != models.COUNT {
@@ -46,7 +46,7 @@ func TestParseCount(t *testing.T) {
 }
 
 func TestParseUpdate(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("UPDATE file.txt SET content='new' WHERE content = 'old'")
 
 	if command.Action != models.UPDATE {
@@ -67,7 +67,7 @@ func TestParseUpdate(t *testing.T) {
 }
 
 func TestParseDelete(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("DELETE FROM file.txt WHERE content = 'remove'")
 
 	if command.Action != models.DELETE {
@@ -80,7 +80,7 @@ func TestParseDelete(t *testing.T) {
 }
 
 func TestParseBatchUpdate(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("UPDATE file.txt SET content='a' WHERE content = 'x', SET content='b' WHERE content = 'y'")
 
 	if !command.IsBatch {
@@ -101,7 +101,7 @@ func TestParseBatchUpdate(t *testing.T) {
 }
 
 func TestParseBatchDelete(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("DELETE FROM file.txt WHERE content = 'x', WHERE content = 'y'")
 
 	if !command.IsBatch {
@@ -114,7 +114,7 @@ func TestParseBatchDelete(t *testing.T) {
 }
 
 func TestLikePatternPrefix(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("SELECT * FROM f WHERE content LIKE '%test'")
 
 	if !command.Pattern.MatchString("mytest") {
@@ -127,7 +127,7 @@ func TestLikePatternPrefix(t *testing.T) {
 }
 
 func TestLikePatternSuffix(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("SELECT * FROM f WHERE content LIKE 'test%'")
 
 	if !command.Pattern.MatchString("testing") {
@@ -140,7 +140,7 @@ func TestLikePatternSuffix(t *testing.T) {
 }
 
 func TestLikePatternBoth(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("SELECT * FROM f WHERE content LIKE '%test%'")
 
 	if !command.Pattern.MatchString("mytesting") {
@@ -149,7 +149,7 @@ func TestLikePatternBoth(t *testing.T) {
 }
 
 func TestLikePatternExact(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("SELECT * FROM f WHERE content LIKE 'test'")
 
 	if !command.Pattern.MatchString("test") {
@@ -162,7 +162,7 @@ func TestLikePatternExact(t *testing.T) {
 }
 
 func TestExactMatch(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("SELECT * FROM f WHERE content = 'exact'")
 
 	if !command.Pattern.MatchString("exact") {
@@ -175,7 +175,7 @@ func TestExactMatch(t *testing.T) {
 }
 
 func TestUpdatePreservesSpace(t *testing.T) {
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("UPDATE *.md SET content = '#### ' WHERE content LIKE '### %'")
 
 	input := "### Title"

@@ -17,10 +17,10 @@ func TestTransactionPreservesFilePermissions(t *testing.T) {
 	originalInfo, _ := os.Stat(file)
 	originalMode := originalInfo.Mode()
 
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("UPDATE test.txt SET content='NEW' WHERE content = 'content'")
 
-	dispatcher := mock.CreateDispatcher()
+	dispatcher := mock.NewDispatcher()
 	dispatcher.Execute(command, []string{file}, true, false)
 
 	newInfo, _ := os.Stat(file)
@@ -35,10 +35,10 @@ func TestTransactionEmptyFileHandling(t *testing.T) {
 	os.WriteFile(file, []byte(""), 0644)
 	defer os.Remove(file)
 
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("UPDATE test.txt SET content='NEW' WHERE content = 'nonexistent'")
 
-	dispatcher := mock.CreateDispatcher()
+	dispatcher := mock.NewDispatcher()
 	dispatcher.Execute(command, []string{file}, true, false)
 
 	result, _ := os.ReadFile(file)
@@ -54,10 +54,10 @@ func TestTransactionWithTrailingNewline(t *testing.T) {
 	os.WriteFile(file, []byte(content), 0644)
 	defer os.Remove(file)
 
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 	command := parser.Parse("UPDATE test.txt SET content='UPDATED' WHERE content = 'line2'")
 
-	dispatcher := mock.CreateDispatcher()
+	dispatcher := mock.NewDispatcher()
 	dispatcher.Execute(command, []string{file}, true, false)
 
 	result, _ := os.ReadFile(file)
@@ -81,11 +81,11 @@ func TestTransactionMultipleFilesSuccess(t *testing.T) {
 	defer os.Remove(file2)
 	defer os.Remove(file3)
 
-	parser := mock.CreateParser()
+	parser := mock.NewParser()
 
 	command := parser.Parse("UPDATE *.txt SET content='CHANGED' WHERE content LIKE 'test'")
 
-	dispatcher := mock.CreateDispatcher()
+	dispatcher := mock.NewDispatcher()
 	dispatcher.Execute(command, []string{file1, file2, file3}, true, false)
 
 	result1, _ := os.ReadFile(file1)
