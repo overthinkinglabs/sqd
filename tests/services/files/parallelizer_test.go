@@ -7,32 +7,8 @@ import (
 	"testing"
 
 	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/services"
-	"github.com/albertoboccolini/sqd/services/commands"
-	"github.com/albertoboccolini/sqd/services/files"
+	"github.com/albertoboccolini/sqd/tests/mock"
 )
-
-func createDispatcher() *commands.Dispatcher {
-	utils := services.NewUtils()
-	processor := files.NewProcessor(utils)
-
-	parallelizer := files.NewParallelizer(utils)
-	dryRunner := commands.NewDryRunner(utils)
-	transactioner := commands.NewTransactioner(utils)
-	searcher := commands.NewSearcher(parallelizer, utils)
-	updater := commands.NewUpdater(processor, utils)
-	deleter := commands.NewDeleter(processor, utils)
-
-	return commands.NewDispatcher(
-		searcher,
-		updater,
-		deleter,
-		transactioner,
-		dryRunner,
-		utils,
-		parallelizer,
-	)
-}
 
 func TestParallelProcessingWithErrors(t *testing.T) {
 	cwd, _ := os.Getwd()
@@ -48,9 +24,9 @@ func TestParallelProcessingWithErrors(t *testing.T) {
 
 	files := []string{file1, invalidFile, file2}
 
-	dispatcher := createDispatcher()
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("COUNT parallel_*.txt WHERE content LIKE 'content'")
+	dispatcher := mock.NewDispatcher()
+	parser := mock.NewParser()
+	command := parser.Parse("COUNT parallel_*.txt WHERE content LIKE 'content'")
 
 	dispatcher.Execute(command, files, false, false)
 
@@ -80,9 +56,9 @@ func TestParallelProcessingConcurrencyLimit(t *testing.T) {
 		defer os.Remove(file)
 	}
 
-	dispatcher := createDispatcher()
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("COUNT concurrent_test_*.txt WHERE content LIKE 'test'")
+	dispatcher := mock.NewDispatcher()
+	parser := mock.NewParser()
+	command := parser.Parse("COUNT concurrent_test_*.txt WHERE content LIKE 'test'")
 
 	dispatcher.Execute(command, files, false, false)
 
@@ -109,9 +85,9 @@ func TestParallelProcessingMaintainsFileIntegrity(t *testing.T) {
 		defer os.Remove(file)
 	}
 
-	dispatcher := createDispatcher()
-	sqlParser := services.NewSQLParser()
-	command := sqlParser.Parse("COUNT integrity_test_*.txt WHERE content LIKE 'line'")
+	dispatcher := mock.NewDispatcher()
+	parser := mock.NewParser()
+	command := parser.Parse("COUNT integrity_test_*.txt WHERE content LIKE 'line'")
 
 	dispatcher.Execute(command, files, false, false)
 
