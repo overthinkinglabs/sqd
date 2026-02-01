@@ -36,7 +36,7 @@ func (searcher *Searcher) filterFilesByName(files []string, pattern *regexp.Rege
 	return filtered
 }
 
-func countMatchingLines(file string, pattern *regexp.Regexp) (int, error) {
+func countMatchingLines(file string, command models.Command) (int, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return 0, err
@@ -46,7 +46,7 @@ func countMatchingLines(file string, pattern *regexp.Regexp) (int, error) {
 	count := 0
 
 	for _, line := range lines {
-		if pattern.MatchString(line) {
+		if command.MatchesLine(line, file) {
 			count++
 		}
 	}
@@ -76,7 +76,7 @@ func (searcher *Searcher) Count(files []string, command models.Command) (int, mo
 
 			lines := strings.SplitSeq(string(data), "\n")
 			for line := range lines {
-				if command.Pattern.MatchString(line) {
+				if command.MatchesLine(line, file) {
 					return 1, nil
 				}
 			}
@@ -101,13 +101,13 @@ func (searcher *Searcher) Count(files []string, command models.Command) (int, mo
 		}
 
 		total := searcher.parallelizer.ProcessFilesInParallel(files, func(file string) (int, error) {
-			return countMatchingLines(file, command.Pattern)
+			return countMatchingLines(file, command)
 		}, &stats)
 
 		return total, stats
 	default:
 		total := searcher.parallelizer.ProcessFilesInParallel(files, func(file string) (int, error) {
-			return countMatchingLines(file, command.Pattern)
+			return countMatchingLines(file, command)
 		}, &stats)
 
 		return total, stats
@@ -161,7 +161,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 		lines := strings.Split(string(data), "\n")
 		matched := false
 		for i, line := range lines {
-			if command.Pattern.MatchString(line) {
+			if command.MatchesLine(line, file) {
 				matched = true
 				switch command.SelectTarget {
 				case models.CONTENT:
@@ -173,7 +173,15 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 		}
 
 		if matched && command.SelectTarget == models.NAME {
-			fmt.Printf("%s\n", searcher.utils.HighlightName(file, command.Pattern))
+			namePattern := command.Pattern
+			for _, whereCondition := range command.WhereConditions {
+				if whereCondition.Target == models.WHERE_NAME {
+					namePattern = whereCondition.Pattern
+					break
+				}
+			}
+
+			fmt.Printf("%s\n", searcher.utils.HighlightName(file, namePattern))
 		}
 		return nil
 	}, &stats)

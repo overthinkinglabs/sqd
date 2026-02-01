@@ -45,6 +45,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 
 	if command.Pattern == nil &&
 		command.WherePattern == nil &&
+		len(command.WhereConditions) == 0 &&
 		((command.Action == models.SELECT ||
 			command.Action == models.COUNT ||
 			command.Action == models.UPDATE ||

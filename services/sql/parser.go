@@ -8,78 +8,17 @@ import (
 )
 
 type Parser struct {
-	extractor *Extractor
+	extractor   *Extractor
+	whereParser *WhereParser
+	batchParser *BatchParser
 }
 
-func NewParser(extractor *Extractor) *Parser {
+func NewParser(extractor *Extractor, whereParser *WhereParser, batchParser *BatchParser) *Parser {
 	return &Parser{
-		extractor: extractor,
+		extractor:   extractor,
+		whereParser: whereParser,
+		batchParser: batchParser,
 	}
-}
-
-func (parser *Parser) parseBatchDeletions(sql string) []models.Deletion {
-	var deletions []models.Deletion
-
-	parts := strings.SplitSeq(sql, ",")
-
-	for part := range parts {
-		part = strings.TrimSpace(part)
-		upper := strings.ToUpper(part)
-
-		if !strings.Contains(upper, "WHERE CONTENT =") {
-			continue
-		}
-
-		var del models.Deletion
-		del.MatchExact = true
-
-		exactMatch := parser.extractor.extractAfter(part, "WHERE content =")
-		exactMatch = strings.Trim(exactMatch, " '\"")
-		del.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
-
-		deletions = append(deletions, del)
-	}
-
-	return deletions
-}
-
-func (parser *Parser) parseBatchReplacements(sql string) []models.Replacement {
-	var replacements []models.Replacement
-
-	parts := strings.SplitSeq(sql, ",")
-
-	for part := range parts {
-		part = strings.TrimSpace(part)
-		upperPart := strings.ToUpper(part)
-
-		if !strings.Contains(upperPart, "SET CONTENT=") {
-			continue
-		}
-
-		var repl models.Replacement
-
-		replaceValue := parser.extractor.extractBetween(part, "SET content=", "WHERE")
-		replaceValue = strings.Trim(replaceValue, " '\"")
-		repl.Replace = replaceValue
-
-		if strings.Contains(upperPart, "WHERE CONTENT =") {
-			repl.MatchExact = true
-			exactMatch := parser.extractor.extractAfter(part, "WHERE content =")
-			exactMatch = strings.Trim(exactMatch, " '\"")
-			repl.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
-		}
-
-		if strings.Contains(upperPart, "WHERE CONTENT LIKE") {
-			repl.MatchExact = false
-			likePattern := parser.extractor.extractAfter(part, "LIKE")
-			likePattern = strings.Trim(likePattern, " '\"")
-			repl.Pattern = parser.extractor.likeToRegex(likePattern)
-		}
-
-		replacements = append(replacements, repl)
-	}
-
-	return replacements
 }
 
 func (parser *Parser) detectSelectTarget(sql string) models.Select {
@@ -141,14 +80,22 @@ func (parser *Parser) Parse(sql string) models.Command {
 
 	if command.Action == models.UPDATE && strings.Count(upperSql, "SET CONTENT=") > 1 {
 		command.IsBatch = true
-		command.Replacements = parser.parseBatchReplacements(sql)
+		command.Replacements = parser.batchParser.ParseReplacements(sql)
 		return command
 	}
 
 	if command.Action == models.DELETE && strings.Count(upperSql, "WHERE CONTENT =") > 1 {
 		command.IsBatch = true
-		command.Deletions = parser.parseBatchDeletions(sql)
+		command.Deletions = parser.batchParser.ParseDeletions(sql)
 		return command
+	}
+
+	if strings.Contains(upperSql, " AND ") || strings.Contains(upperSql, " OR ") {
+		command.WhereConditions, command.WhereOperation = parser.whereParser.Parse(sql)
+		if len(command.WhereConditions) > 0 {
+			command.Pattern = command.WhereConditions[0].Pattern
+			return command
+		}
 	}
 
 	if strings.Contains(upperSql, "WHERE NAME") {
