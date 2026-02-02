@@ -1,0 +1,29 @@
+package models
+
+type TokenType int
+
+const (
+	IDENTIFIER TokenType = iota
+	STRING
+	SELECT
+	FROM
+	WHERE
+	UPDATE
+	SET
+	DELETE
+	COUNT
+	LIKE
+	NAME
+	CONTENT
+	EQUALS
+	LPAREN
+	RPAREN
+	ASTERISK
+	COMMA
+	EOF
+)
+
+type Token struct {
+	Type    TokenType
+	Literal string
+}

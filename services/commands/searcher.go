@@ -57,13 +57,13 @@ func countMatchingLines(file string, pattern *regexp.Regexp) (int, error) {
 func (searcher *Searcher) Count(files []string, command models.Command) (int, models.ExecutionStats) {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
-	if command.WhereTarget == models.WHERE_NAME && command.WherePattern != nil {
+	if command.WhereTarget == models.NAME && command.WherePattern != nil {
 		files = searcher.filterFilesByName(files, command.WherePattern)
 	}
 
 	switch command.SelectTarget {
 	case models.NAME:
-		if command.WhereTarget == models.WHERE_NAME && command.WherePattern != nil {
+		if command.WhereTarget == models.NAME && command.WherePattern != nil {
 			stats.Processed = len(files)
 			return len(files), stats
 		}
@@ -84,8 +84,8 @@ func (searcher *Searcher) Count(files []string, command models.Command) (int, mo
 			return 0, nil
 		}, &stats)
 		return total, stats
-	case models.CONTENT, models.ALL:
-		if command.WhereTarget == models.WHERE_NAME && command.WherePattern != nil {
+	case models.CONTENT, models.ASTERISK:
+		if command.WhereTarget == models.NAME && command.WherePattern != nil {
 			total := 0
 			for _, file := range files {
 				data, err := os.ReadFile(file)
@@ -117,11 +117,11 @@ func (searcher *Searcher) Count(files []string, command models.Command) (int, mo
 func (searcher *Searcher) Select(files []string, command models.Command) models.ExecutionStats {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
-	if command.WhereTarget == models.WHERE_NAME && command.WherePattern != nil {
+	if command.WhereTarget == models.NAME && command.WherePattern != nil {
 		files = searcher.filterFilesByName(files, command.WherePattern)
 	}
 
-	if command.SelectTarget == models.NAME && command.WhereTarget == models.WHERE_NAME {
+	if command.SelectTarget == models.NAME && command.WhereTarget == models.NAME {
 		for _, file := range files {
 			fmt.Printf("%s\n", searcher.utils.HighlightName(file, command.WherePattern))
 		}
@@ -130,7 +130,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 		return stats
 	}
 
-	if command.WhereTarget == models.WHERE_NAME && (command.SelectTarget == models.ALL || command.SelectTarget == models.CONTENT) {
+	if command.WhereTarget == models.NAME && (command.SelectTarget == models.ASTERISK || command.SelectTarget == models.CONTENT) {
 		for _, file := range files {
 			data, err := os.ReadFile(file)
 			if err != nil {
@@ -143,7 +143,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 				switch command.SelectTarget {
 				case models.CONTENT:
 					fmt.Printf("%s\n", line)
-				case models.ALL:
+				case models.ASTERISK:
 					fmt.Printf("%s:%d: %s\n", searcher.utils.HighlightName(file, command.WherePattern), i+1, line)
 				}
 			}
@@ -166,7 +166,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 				switch command.SelectTarget {
 				case models.CONTENT:
 					fmt.Printf("%s\n", searcher.utils.HighlightMatch(line, command.Pattern))
-				case models.ALL:
+				case models.ASTERISK:
 					fmt.Printf("%s:%d: %s\n", file, i+1, searcher.utils.HighlightMatch(line, command.Pattern))
 				}
 			}

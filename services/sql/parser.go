@@ -8,8 +8,11 @@ import (
 )
 
 type Parser struct {
-	extractor   *Extractor
-	batchParser *BatchParser
+	extractor    *Extractor
+	batchParser  *BatchParser
+	lexer        *Lexer
+	currentToken models.Token
+	peekToken    models.Token
 }
 
 func NewParser(extractor *Extractor, batchParser *BatchParser) *Parser {
@@ -19,124 +22,173 @@ func NewParser(extractor *Extractor, batchParser *BatchParser) *Parser {
 	}
 }
 
-func (parser *Parser) detectSelectTarget(sql string) models.Select {
-	upper := strings.ToUpper(sql)
-	selectIdx := strings.Index(upper, "SELECT")
-	fromIdx := strings.Index(upper, "FROM")
-	if selectIdx == -1 || fromIdx == -1 {
-		return models.ALL
+func (parser *Parser) initLexer(input string) {
+	parser.lexer = NewLexer(input)
+	parser.nextToken()
+	parser.nextToken()
+}
+
+func (parser *Parser) nextToken() {
+	parser.currentToken = parser.peekToken
+	parser.peekToken = parser.lexer.NextToken()
+}
+
+func (parser *Parser) currentTokenIs(tokenType models.TokenType) bool {
+	return parser.currentToken.Type == tokenType
+}
+
+func (parser *Parser) peekTokenIs(tokenType models.TokenType) bool {
+	return parser.peekToken.Type == tokenType
+}
+
+func (parser *Parser) detectSelectTarget(sql string) models.TokenType {
+	lexer := NewLexer(sql)
+
+	for {
+		token := lexer.NextToken()
+
+		if token.Type == models.SELECT {
+			token = lexer.NextToken()
+
+			if token.Type == models.COUNT {
+				token = lexer.NextToken()
+				if token.Type == models.LPAREN {
+					token = lexer.NextToken()
+				}
+			}
+
+			if token.Type == models.NAME {
+				return models.NAME
+			}
+
+			if token.Type == models.CONTENT {
+				return models.CONTENT
+			}
+
+			if token.Type == models.ASTERISK {
+				return models.ASTERISK
+			}
+		}
+
+		if token.Type == models.EOF {
+			break
+		}
 	}
 
-	selectClause := strings.TrimSpace(sql[selectIdx+6 : fromIdx])
-	selectClauseLower := strings.ToLower(selectClause)
-
-	if strings.HasPrefix(selectClauseLower, "count(") && strings.HasSuffix(selectClauseLower, ")") {
-		selectClauseLower = strings.TrimSuffix(strings.TrimPrefix(selectClauseLower, "count("), ")")
-	}
-
-	switch selectClauseLower {
-	case "name":
-		return models.NAME
-	case "content":
-		return models.CONTENT
-	default:
-		return models.ALL
-	}
+	return models.ASTERISK
 }
 
 func (parser *Parser) Parse(sql string) models.Command {
-	sql = strings.TrimSpace(sql)
-	upperSql := strings.ToUpper(sql)
+	parser.initLexer(sql)
 
 	var command models.Command
-	command.SelectTarget = models.ALL
-	command.WhereTarget = models.WHERE_CONTENT
+	command.SelectTarget = models.ASTERISK
+	command.WhereTarget = models.CONTENT
 
-	if strings.HasPrefix(upperSql, "SELECT COUNT") {
-		command.Action = models.COUNT
-		command.File = parser.extractor.extractBetween(sql, "FROM", "WHERE")
+	upperSql := strings.ToUpper(sql)
+
+	if parser.currentTokenIs(models.SELECT) {
+		if parser.peekTokenIs(models.COUNT) {
+			command.Action = models.COUNT
+			parser.nextToken()
+		}
+
+		if command.Action != models.COUNT {
+			command.Action = models.SELECT
+		}
 		command.SelectTarget = parser.detectSelectTarget(sql)
 	}
 
-	if strings.HasPrefix(upperSql, "SELECT") && !strings.HasPrefix(upperSql, "SELECT COUNT") {
-		command.Action = models.SELECT
-		command.File = parser.extractor.extractBetween(sql, "FROM", "WHERE")
-		command.SelectTarget = parser.detectSelectTarget(sql)
-	}
-
-	if strings.HasPrefix(upperSql, "UPDATE") {
+	if parser.currentTokenIs(models.UPDATE) {
 		command.Action = models.UPDATE
-		command.File = parser.extractor.extractBetween(sql, "UPDATE", "SET")
+		parser.nextToken()
+		if parser.currentTokenIs(models.IDENTIFIER) {
+			command.File = parser.currentToken.Literal
+		}
 	}
 
-	if strings.HasPrefix(upperSql, "DELETE") {
+	if parser.currentTokenIs(models.DELETE) {
 		command.Action = models.DELETE
-		command.File = parser.extractor.extractBetween(sql, "DELETE FROM", "WHERE")
-	}
-
-	command.File = strings.TrimSpace(command.File)
-
-	if command.Action == models.UPDATE && strings.Count(upperSql, "SET CONTENT=") > 1 {
-		command.IsBatch = true
-		command.Replacements = parser.batchParser.parseReplacements(sql)
-		return command
-	}
-
-	if command.Action == models.DELETE && strings.Count(upperSql, "WHERE CONTENT =") > 1 {
-		command.IsBatch = true
-		command.Deletions = parser.batchParser.parseDeletions(sql)
-		return command
-	}
-
-	if strings.Contains(upperSql, "WHERE NAME") {
-		command.WhereTarget = models.WHERE_NAME
-
-		if strings.Contains(upperSql, "WHERE NAME =") {
-			exactMatch := parser.extractor.extractAfter(sql, "WHERE name =")
-			exactMatch = strings.Trim(exactMatch, " '\"")
-			command.WherePattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
-		}
-
-		if strings.Contains(upperSql, "WHERE NAME LIKE") {
-			likePattern := parser.extractor.extractAfter(sql, "WHERE name LIKE")
-			likePattern = strings.Trim(likePattern, " '\"")
-			command.WherePattern = parser.extractor.likeToRegex(likePattern)
-		}
-
-		return command
-	}
-
-	if strings.Contains(upperSql, "WHERE CONTENT") {
-		whereContentRegex := regexp.MustCompile(`(?i)WHERE\s+content\s*=\s*`)
-		loc := whereContentRegex.FindStringIndex(sql)
-		if loc != nil {
-			command.MatchExact = true
-			exactMatch := strings.TrimSpace(sql[loc[1]:])
-			exactMatch = strings.Trim(exactMatch, " '\"")
-			command.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
-		}
-	}
-
-	if strings.Contains(upperSql, "WHERE CONTENT LIKE") {
-		command.MatchExact = false
-		likePattern := parser.extractor.extractAfter(sql, "LIKE")
-		likePattern = strings.Trim(likePattern, " '\"")
-		command.Pattern = parser.extractor.likeToRegex(likePattern)
 	}
 
 	if command.Action == models.UPDATE {
-		setContentRegex := regexp.MustCompile(`(?i)SET\s+content\s*=\s*`)
-		whereIdx := strings.Index(upperSql, "WHERE")
-		if whereIdx == -1 {
-			whereIdx = len(sql)
-		}
-
-		loc := setContentRegex.FindStringIndex(sql)
-		if loc != nil {
-			command.Replace = strings.TrimSpace(sql[loc[1]:whereIdx])
-			command.Replace = strings.Trim(command.Replace, "'\"")
+		setCount := strings.Count(upperSql, "SET")
+		if setCount > 1 {
+			command.IsBatch = true
+			command.File = parser.extractor.extractFilename(sql, "UPDATE", "SET")
+			command.Replacements = parser.batchParser.parseBatchReplacements(sql)
+			return command
 		}
 	}
 
+	if command.Action == models.DELETE {
+		whereCount := strings.Count(upperSql, "WHERE")
+		if whereCount > 1 {
+			command.IsBatch = true
+			command.File = parser.extractor.extractFilename(sql, "DELETE FROM", "WHERE")
+			command.Deletions = parser.batchParser.parseDeletions(sql)
+			return command
+		}
+	}
+
+	for !parser.currentTokenIs(models.EOF) {
+		if parser.currentTokenIs(models.FROM) {
+			parser.nextToken()
+			command.File = parser.currentToken.Literal
+		}
+
+		if parser.currentTokenIs(models.WHERE) {
+			parser.nextToken()
+
+			if parser.currentTokenIs(models.NAME) {
+				command.WhereTarget = models.NAME
+				parser.nextToken()
+
+				if parser.currentTokenIs(models.EQUALS) {
+					parser.nextToken()
+					exactMatch := parser.currentToken.Literal
+					command.WherePattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+				}
+
+				if parser.currentTokenIs(models.LIKE) {
+					parser.nextToken()
+					likePattern := parser.currentToken.Literal
+					command.WherePattern = parser.extractor.likeToRegex(likePattern)
+				}
+			}
+
+			if parser.currentTokenIs(models.CONTENT) {
+				parser.nextToken()
+
+				if parser.currentTokenIs(models.EQUALS) {
+					parser.nextToken()
+					exactMatch := parser.currentToken.Literal
+					command.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+				}
+
+				if parser.currentTokenIs(models.LIKE) {
+					parser.nextToken()
+					likePattern := parser.currentToken.Literal
+					command.Pattern = parser.extractor.likeToRegex(likePattern)
+				}
+			}
+		}
+
+		if parser.currentTokenIs(models.SET) && command.Action == models.UPDATE {
+			parser.nextToken()
+
+			if parser.currentTokenIs(models.CONTENT) {
+				parser.nextToken()
+				if parser.currentTokenIs(models.EQUALS) {
+					parser.nextToken()
+					command.Replace = parser.currentToken.Literal
+				}
+			}
+		}
+
+		parser.nextToken()
+	}
+
+	command.File = strings.TrimSpace(command.File)
 	return command
 }

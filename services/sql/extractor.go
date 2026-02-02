@@ -11,36 +11,20 @@ func NewExtractor() *Extractor {
 	return &Extractor{}
 }
 
-func (extractor *Extractor) extractBetween(query, start, end string) string {
-	upperStart := strings.ToUpper(start)
-	upperEnd := strings.ToUpper(end)
-	upperQuery := strings.ToUpper(query)
-
-	startIndex := strings.Index(upperQuery, upperStart)
-	if startIndex == -1 {
+func (extractor *Extractor) extractFilename(sql string, startKeyword, endKeyword string) string {
+	upperSql := strings.ToUpper(sql)
+	startIdx := strings.Index(upperSql, startKeyword)
+	if startIdx == -1 {
 		return ""
 	}
+	startIdx += len(startKeyword)
 
-	startIndex += len(upperStart)
-	endIndex := strings.Index(upperQuery[startIndex:], upperEnd)
-
-	if endIndex == -1 {
-		return strings.TrimSpace(query[startIndex:])
+	endIdx := strings.Index(upperSql[startIdx:], endKeyword)
+	if endIdx == -1 {
+		return strings.TrimSpace(sql[startIdx:])
 	}
 
-	return strings.TrimSpace(query[startIndex : startIndex+endIndex])
-}
-
-func (extractor *Extractor) extractAfter(query, marker string) string {
-	markerUpper := strings.ToUpper(marker)
-	upperQuery := strings.ToUpper(query)
-
-	index := strings.Index(upperQuery, markerUpper)
-	if index == -1 {
-		return ""
-	}
-
-	return strings.TrimSpace(query[index+len(markerUpper):])
+	return strings.TrimSpace(sql[startIdx : startIdx+endIdx])
 }
 
 func (extractor *Extractor) likeToRegex(pattern string) *regexp.Regexp {

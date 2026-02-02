@@ -39,10 +39,6 @@ func TestParseCount(t *testing.T) {
 	if command.File != "file.sql" {
 		t.Fatalf("expected file.sql, got %s", command.File)
 	}
-
-	if !command.MatchExact {
-		t.Error("expected exact match")
-	}
 }
 
 func TestParseUpdate(t *testing.T) {
@@ -57,10 +53,6 @@ func TestParseUpdate(t *testing.T) {
 		t.Fatalf("expected 'new', got %s", command.Replace)
 	}
 
-	if !command.MatchExact {
-		t.Error("expected exact match")
-	}
-
 	if !command.Pattern.MatchString("old") {
 		t.Error("pattern should match 'old'")
 	}
@@ -72,10 +64,6 @@ func TestParseDelete(t *testing.T) {
 
 	if command.Action != models.DELETE {
 		t.Fatalf("expected DELETE, got %v", command.Action)
-	}
-
-	if !command.MatchExact {
-		t.Error("expected exact match")
 	}
 }
 

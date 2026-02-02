@@ -17,65 +17,111 @@ func NewBatchParser(extractor *Extractor) *BatchParser {
 
 func (batchParser *BatchParser) parseDeletions(sql string) []models.Deletion {
 	var deletions []models.Deletion
-
 	parts := strings.SplitSeq(sql, ",")
 
 	for part := range parts {
 		part = strings.TrimSpace(part)
-		upper := strings.ToUpper(part)
-
-		if !strings.Contains(upper, "WHERE CONTENT =") {
+		if part == "" {
 			continue
 		}
 
-		var del models.Deletion
-		del.MatchExact = true
+		lexer := NewLexer(part)
+		var deletion models.Deletion
 
-		exactMatch := batchParser.extractor.extractAfter(part, "WHERE content =")
-		exactMatch = strings.Trim(exactMatch, " '\"")
-		del.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+		for {
+			token := lexer.NextToken()
+			if token.Type == models.EQUALS {
+				token = lexer.NextToken()
+				if token.Type == models.STRING {
+					deletion.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(token.Literal) + "$")
+					break
+				}
+			}
 
-		deletions = append(deletions, del)
+			if token.Type == models.EOF {
+				break
+			}
+		}
+
+		deletions = append(deletions, deletion)
 	}
 
 	return deletions
 }
 
-func (batchParser *BatchParser) parseReplacements(sql string) []models.Replacement {
+func (batchParser *BatchParser) parseBatchReplacements(sql string) []models.Replacement {
 	var replacements []models.Replacement
-
 	parts := strings.SplitSeq(sql, ",")
 
 	for part := range parts {
 		part = strings.TrimSpace(part)
-		upperPart := strings.ToUpper(part)
-
-		if !strings.Contains(upperPart, "SET CONTENT=") {
+		if part == "" {
 			continue
 		}
 
 		var replacement models.Replacement
+		lexer := NewLexer(part)
 
-		replaceValue := batchParser.extractor.extractBetween(part, "SET content=", "WHERE")
-		replaceValue = strings.Trim(replaceValue, " '\"")
-		replacement.Replace = replaceValue
+		for {
+			token := lexer.NextToken()
+			if token.Type == models.EOF {
+				break
+			}
 
-		if strings.Contains(upperPart, "WHERE CONTENT =") {
-			replacement.MatchExact = true
-			exactMatch := batchParser.extractor.extractAfter(part, "WHERE content =")
-			exactMatch = strings.Trim(exactMatch, " '\"")
-			replacement.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
-		}
-
-		if strings.Contains(upperPart, "WHERE CONTENT LIKE") {
-			replacement.MatchExact = false
-			likePattern := batchParser.extractor.extractAfter(part, "LIKE")
-			likePattern = strings.Trim(likePattern, " '\"")
-			replacement.Pattern = batchParser.extractor.likeToRegex(likePattern)
+			switch token.Type {
+			case models.SET:
+				if setReplacement(&replacement, lexer) == false {
+					continue
+				}
+			case models.WHERE:
+				setWhereClause(batchParser, &replacement, lexer)
+			}
 		}
 
 		replacements = append(replacements, replacement)
 	}
 
 	return replacements
+}
+
+func setReplacement(replacement *models.Replacement, lexer *Lexer) bool {
+	token := lexer.NextToken()
+	if token.Type != models.CONTENT {
+		return false
+	}
+
+	token = lexer.NextToken()
+	if token.Type != models.EQUALS {
+		return false
+	}
+
+	token = lexer.NextToken()
+	if token.Type != models.STRING {
+		return false
+	}
+
+	replacement.Replace = token.Literal
+	return true
+}
+
+func setWhereClause(batchParser *BatchParser, replacement *models.Replacement, lexer *Lexer) {
+	token := lexer.NextToken()
+	if token.Type != models.CONTENT {
+		return
+	}
+
+	token = lexer.NextToken()
+	switch token.Type {
+	case models.EQUALS:
+		token = lexer.NextToken()
+		if token.Type == models.STRING {
+			pattern := regexp.MustCompile("^" + regexp.QuoteMeta(token.Literal) + "$")
+			replacement.Pattern = pattern
+		}
+	case models.LIKE:
+		token = lexer.NextToken()
+		if token.Type == models.STRING {
+			replacement.Pattern = batchParser.extractor.likeToRegex(token.Literal)
+		}
+	}
 }
