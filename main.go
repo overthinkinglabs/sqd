@@ -64,7 +64,8 @@ func executeQuery(query string, useTransaction, dryRun bool) {
 	}
 
 	extractor := sql.NewExtractor()
-	parser := sql.NewParser(extractor)
+	batchParser := sql.NewBatchParser(extractor)
+	parser := sql.NewParser(extractor, batchParser)
 	command := parser.Parse(query)
 
 	utils := services.NewUtils()
