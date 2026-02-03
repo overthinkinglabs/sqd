@@ -24,7 +24,6 @@ func (lexer *Lexer) readChar() {
 	if lexer.readPosition >= len(lexer.input) {
 		lexer.currentChar = 0
 		lexer.position = lexer.readPosition
-		lexer.readPosition++
 		return
 	}
 
