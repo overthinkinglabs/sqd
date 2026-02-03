@@ -5,26 +5,23 @@ import (
 )
 
 type Command struct {
-	Action       Action
+	Action       TokenType
 	File         string
 	Pattern      *regexp.Regexp
 	Replace      string
-	MatchExact   bool
 	Replacements []Replacement
 	Deletions    []Deletion
 	IsBatch      bool
-	SelectTarget Select
-	WhereTarget  WhereTarget
+	SelectTarget TokenType
+	WhereTarget  TokenType
 	WherePattern *regexp.Regexp
 }
 
 type Replacement struct {
-	Pattern    *regexp.Regexp
-	Replace    string
-	MatchExact bool
+	Pattern *regexp.Regexp
+	Replace string
 }
 
 type Deletion struct {
-	Pattern    *regexp.Regexp
-	MatchExact bool
+	Pattern *regexp.Regexp
 }

@@ -39,10 +39,6 @@ func TestParseCount(t *testing.T) {
 	if command.File != "file.sql" {
 		t.Fatalf("expected file.sql, got %s", command.File)
 	}
-
-	if !command.MatchExact {
-		t.Error("expected exact match")
-	}
 }
 
 func TestParseUpdate(t *testing.T) {
@@ -57,10 +53,6 @@ func TestParseUpdate(t *testing.T) {
 		t.Fatalf("expected 'new', got %s", command.Replace)
 	}
 
-	if !command.MatchExact {
-		t.Error("expected exact match")
-	}
-
 	if !command.Pattern.MatchString("old") {
 		t.Error("pattern should match 'old'")
 	}
@@ -72,10 +64,6 @@ func TestParseDelete(t *testing.T) {
 
 	if command.Action != models.DELETE {
 		t.Fatalf("expected DELETE, got %v", command.Action)
-	}
-
-	if !command.MatchExact {
-		t.Error("expected exact match")
 	}
 }
 
@@ -101,5 +89,80 @@ func TestUpdatePreservesSpace(t *testing.T) {
 
 	if result != "#### Title" {
 		t.Errorf("expected '#### Title', got '%s'", result)
+	}
+}
+
+func TestParseWhereNameEquals(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT * FROM *.txt WHERE name = 'test.txt'")
+
+	if command.Action != models.SELECT {
+		t.Fatalf("expected SELECT, got %v", command.Action)
+	}
+
+	if command.WhereTarget != models.NAME {
+		t.Fatalf("expected WhereTarget NAME, got %v", command.WhereTarget)
+	}
+
+	if command.WherePattern == nil {
+		t.Fatal("WherePattern is nil")
+	}
+
+	if !command.WherePattern.MatchString("test.txt") {
+		t.Error("pattern should match 'test.txt'")
+	}
+
+	if command.WherePattern.MatchString("other.txt") {
+		t.Error("pattern should not match 'other.txt' (exact match)")
+	}
+}
+
+func TestParseWhereNameLike(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT * FROM *.md WHERE name LIKE '%.tmp'")
+
+	if command.Action != models.SELECT {
+		t.Fatalf("expected SELECT, got %v", command.Action)
+	}
+
+	if command.WhereTarget != models.NAME {
+		t.Fatalf("expected WhereTarget NAME, got %v", command.WhereTarget)
+	}
+
+	if command.WherePattern == nil {
+		t.Fatal("WherePattern is nil")
+	}
+
+	if !command.WherePattern.MatchString("file.tmp") {
+		t.Error("pattern should match 'file.tmp'")
+	}
+
+	if !command.WherePattern.MatchString("test.tmp") {
+		t.Error("pattern should match 'test.tmp'")
+	}
+
+	if command.WherePattern.MatchString("file.md") {
+		t.Error("pattern should not match 'file.md'")
+	}
+}
+
+func TestParseCountWithWhereName(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT COUNT(*) FROM *.go WHERE name LIKE 'test%'")
+
+	if command.Action != models.COUNT {
+		t.Fatalf("expected COUNT, got %v", command.Action)
+	}
+
+	if command.WhereTarget != models.NAME {
+		t.Fatalf("expected WhereTarget NAME, got %v", command.WhereTarget)
+	}
+
+	if !command.WherePattern.MatchString("test_file.go") {
+		t.Error("pattern should match 'test_file.go'")
+	}
+
+	if command.WherePattern.MatchString("main.go") {
+		t.Error("pattern should not match 'main.go'")
 	}
 }
