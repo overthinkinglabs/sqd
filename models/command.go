@@ -15,6 +15,12 @@ type Command struct {
 	SelectTarget TokenType
 	WhereTarget  TokenType
 	WherePattern *regexp.Regexp
+	OrderBy      []OrderBy
+}
+
+type OrderBy struct {
+	Column    TokenType
+	Direction TokenType
 }
 
 type Replacement struct {

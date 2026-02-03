@@ -12,6 +12,7 @@ import (
 
 type Dispatcher struct {
 	searcher      *Searcher
+	counter       *Counter
 	updater       *Updater
 	deleter       *Deleter
 	transactioner *Transactioner
@@ -22,6 +23,7 @@ type Dispatcher struct {
 
 func NewDispatcher(
 	searcher *Searcher,
+	counter *Counter,
 	updater *Updater,
 	deleter *Deleter,
 	transactioner *Transactioner,
@@ -31,6 +33,7 @@ func NewDispatcher(
 ) *Dispatcher {
 	return &Dispatcher{
 		searcher:      searcher,
+		counter:       counter,
 		updater:       updater,
 		deleter:       deleter,
 		transactioner: transactioner,
@@ -59,7 +62,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 	}
 
 	if command.Action == models.COUNT {
-		total, stats := dispatcher.searcher.Count(files, command)
+		total, stats := dispatcher.counter.Count(files, command)
 		fmt.Printf("%d matches\n", total)
 		dispatcher.utils.PrintStats(stats)
 		return
@@ -170,6 +173,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 				stats.Skipped++
 				continue
 			}
+
 			total += count
 			stats.Processed++
 		}

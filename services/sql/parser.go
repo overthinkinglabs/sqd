@@ -41,41 +41,116 @@ func (parser *Parser) peekTokenIs(tokenType models.TokenType) bool {
 	return parser.peekToken.Type == tokenType
 }
 
-func (parser *Parser) detectSelectTarget(sql string) models.TokenType {
-	lexer := NewLexer(sql)
+func (parser *Parser) parseSelectTarget() models.TokenType {
+	if !parser.currentTokenIs(models.SELECT) {
+		return models.ASTERISK
+	}
 
-	for {
-		token := lexer.NextToken()
+	parser.nextToken()
 
-		if token.Type == models.SELECT {
-			token = lexer.NextToken()
-
-			if token.Type == models.COUNT {
-				token = lexer.NextToken()
-				if token.Type == models.LPAREN {
-					token = lexer.NextToken()
-				}
-			}
-
-			if token.Type == models.NAME {
-				return models.NAME
-			}
-
-			if token.Type == models.CONTENT {
-				return models.CONTENT
-			}
-
-			if token.Type == models.ASTERISK {
-				return models.ASTERISK
-			}
-		}
-
-		if token.Type == models.EOF {
-			break
+	if parser.currentTokenIs(models.COUNT) {
+		parser.nextToken()
+		if parser.currentTokenIs(models.LPAREN) {
+			parser.nextToken()
 		}
 	}
 
-	return models.ASTERISK
+	switch parser.currentToken.Type {
+	case models.NAME:
+		return models.NAME
+	case models.CONTENT:
+		return models.CONTENT
+	case models.ASTERISK:
+		return models.ASTERISK
+	default:
+		return models.ASTERISK
+	}
+}
+
+func (parser *Parser) parseComparison(pattern **regexp.Regexp) {
+	parser.nextToken()
+
+	if parser.currentTokenIs(models.EQUALS) {
+		parser.nextToken()
+		exactMatch := parser.currentToken.Literal
+		*pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+		return
+	}
+
+	if parser.currentTokenIs(models.LIKE) {
+		parser.nextToken()
+		likePattern := parser.currentToken.Literal
+		*pattern = parser.extractor.likeToRegex(likePattern)
+	}
+}
+
+func (parser *Parser) parseWhereClause(command *models.Command) {
+	if !parser.currentTokenIs(models.WHERE) {
+		return
+	}
+
+	parser.nextToken()
+
+	if parser.currentTokenIs(models.NAME) {
+		command.WhereTarget = models.NAME
+		parser.parseComparison(&command.WherePattern)
+		return
+	}
+
+	if parser.currentTokenIs(models.CONTENT) {
+		parser.parseComparison(&command.Pattern)
+	}
+}
+
+func (parser *Parser) parseOrderItem() models.OrderBy {
+	item := models.OrderBy{}
+
+	switch {
+	case parser.currentTokenIs(models.NAME):
+		item.Column = models.NAME
+	case parser.currentTokenIs(models.CONTENT):
+		item.Column = models.CONTENT
+	default:
+		return item
+	}
+
+	parser.nextToken()
+
+	switch {
+	case parser.currentTokenIs(models.ASC):
+		item.Direction = models.ASC
+		parser.nextToken()
+	case parser.currentTokenIs(models.DESC):
+		item.Direction = models.DESC
+		parser.nextToken()
+	}
+
+	return item
+}
+
+func (parser *Parser) parseOrderBy(command *models.Command) {
+	if !parser.currentTokenIs(models.ORDER) || !parser.peekTokenIs(models.BY) {
+		return
+	}
+
+	parser.nextToken()
+	parser.nextToken()
+
+	command.OrderBy = make([]models.OrderBy, 0)
+
+	for {
+		orderItem := parser.parseOrderItem()
+		if orderItem.Column == models.TokenType(0) {
+			break
+		}
+
+		command.OrderBy = append(command.OrderBy, orderItem)
+
+		if !parser.currentTokenIs(models.COMMA) {
+			break
+		}
+		parser.nextToken()
+	}
 }
 
 func (parser *Parser) Parse(sql string) models.Command {
@@ -96,7 +171,7 @@ func (parser *Parser) Parse(sql string) models.Command {
 		if command.Action != models.COUNT {
 			command.Action = models.SELECT
 		}
-		command.SelectTarget = parser.detectSelectTarget(sql)
+		command.SelectTarget = parser.parseSelectTarget()
 	}
 
 	if parser.currentTokenIs(models.UPDATE) {
@@ -137,42 +212,7 @@ func (parser *Parser) Parse(sql string) models.Command {
 			command.File = parser.currentToken.Literal
 		}
 
-		if parser.currentTokenIs(models.WHERE) {
-			parser.nextToken()
-
-			if parser.currentTokenIs(models.NAME) {
-				command.WhereTarget = models.NAME
-				parser.nextToken()
-
-				if parser.currentTokenIs(models.EQUALS) {
-					parser.nextToken()
-					exactMatch := parser.currentToken.Literal
-					command.WherePattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
-				}
-
-				if parser.currentTokenIs(models.LIKE) {
-					parser.nextToken()
-					likePattern := parser.currentToken.Literal
-					command.WherePattern = parser.extractor.likeToRegex(likePattern)
-				}
-			}
-
-			if parser.currentTokenIs(models.CONTENT) {
-				parser.nextToken()
-
-				if parser.currentTokenIs(models.EQUALS) {
-					parser.nextToken()
-					exactMatch := parser.currentToken.Literal
-					command.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
-				}
-
-				if parser.currentTokenIs(models.LIKE) {
-					parser.nextToken()
-					likePattern := parser.currentToken.Literal
-					command.Pattern = parser.extractor.likeToRegex(likePattern)
-				}
-			}
-		}
+		parser.parseWhereClause(&command)
 
 		if parser.currentTokenIs(models.SET) && command.Action == models.UPDATE {
 			parser.nextToken()
@@ -186,6 +226,7 @@ func (parser *Parser) Parse(sql string) models.Command {
 			}
 		}
 
+		parser.parseOrderBy(&command)
 		parser.nextToken()
 	}
 

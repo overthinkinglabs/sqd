@@ -20,6 +20,10 @@ const (
 	RPAREN
 	ASTERISK
 	COMMA
+	ORDER
+	BY
+	ASC
+	DESC
 	EOF
 )
 
