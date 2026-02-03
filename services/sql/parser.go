@@ -41,30 +41,41 @@ func (parser *Parser) peekTokenIs(tokenType models.TokenType) bool {
 	return parser.peekToken.Type == tokenType
 }
 
-func (parser *Parser) parseSelectTarget() models.TokenType {
-	if !parser.currentTokenIs(models.SELECT) {
-		return models.ASTERISK
-	}
+func (parser *Parser) parseSelectTarget(sql string) models.TokenType {
+	lexer := NewLexer(sql)
 
-	parser.nextToken()
+	for {
+		token := lexer.NextToken()
 
-	if parser.currentTokenIs(models.COUNT) {
-		parser.nextToken()
-		if parser.currentTokenIs(models.LPAREN) {
-			parser.nextToken()
+		if token.Type == models.SELECT {
+			token = lexer.NextToken()
+
+			if token.Type == models.COUNT {
+				token = lexer.NextToken()
+				if token.Type == models.LPAREN {
+					token = lexer.NextToken()
+				}
+			}
+
+			if token.Type == models.NAME {
+				return models.NAME
+			}
+
+			if token.Type == models.CONTENT {
+				return models.CONTENT
+			}
+
+			if token.Type == models.ASTERISK {
+				return models.ASTERISK
+			}
+		}
+
+		if token.Type == models.EOF {
+			break
 		}
 	}
 
-	switch parser.currentToken.Type {
-	case models.NAME:
-		return models.NAME
-	case models.CONTENT:
-		return models.CONTENT
-	case models.ASTERISK:
-		return models.ASTERISK
-	default:
-		return models.ASTERISK
-	}
+	return models.ASTERISK
 }
 
 func (parser *Parser) parseComparison(pattern **regexp.Regexp) {
@@ -171,7 +182,7 @@ func (parser *Parser) Parse(sql string) models.Command {
 		if command.Action != models.COUNT {
 			command.Action = models.SELECT
 		}
-		command.SelectTarget = parser.parseSelectTarget()
+		command.SelectTarget = parser.parseSelectTarget(sql)
 	}
 
 	if parser.currentTokenIs(models.UPDATE) {

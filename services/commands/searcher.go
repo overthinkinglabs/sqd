@@ -124,7 +124,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 
 	allFileResults := make([]fileResults, len(files))
 
-	searcher.parallelizer.ProcessFilesInParallelNoCount(files, func(file string) error {
+	searcher.parallelizer.ProcessFilesInParallelWithIndex(files, func(index int, file string) error {
 		data, err := os.ReadFile(file)
 		if err != nil {
 			return err
@@ -144,12 +144,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 			}
 		}
 
-		for i, currentFile := range files {
-			if currentFile == file {
-				allFileResults[i] = searchResults
-				break
-			}
-		}
+		allFileResults[index] = searchResults
 		return nil
 	}, &stats)
 

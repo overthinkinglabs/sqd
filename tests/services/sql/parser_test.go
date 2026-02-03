@@ -166,3 +166,146 @@ func TestParseCountWithWhereName(t *testing.T) {
 		t.Error("pattern should not match 'main.go'")
 	}
 }
+
+func TestParseOrderByName(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT * FROM *.txt WHERE content LIKE '%foo%' ORDER BY name")
+
+	if command.Action != models.SELECT {
+		t.Fatalf("expected SELECT, got %v", command.Action)
+	}
+
+	if len(command.OrderBy) != 1 {
+		t.Fatalf("expected 1 order by clause, got %d", len(command.OrderBy))
+	}
+
+	if command.OrderBy[0].Column != models.NAME {
+		t.Errorf("expected ORDER BY name, got %v", command.OrderBy[0].Column)
+	}
+
+	if command.OrderBy[0].Direction != models.TokenType(0) {
+		t.Errorf("expected no explicit direction, got %v", command.OrderBy[0].Direction)
+	}
+}
+
+func TestParseOrderByNameAsc(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT * FROM *.txt WHERE content LIKE '%test%' ORDER BY name ASC")
+
+	if len(command.OrderBy) != 1 {
+		t.Fatalf("expected 1 order by clause, got %d", len(command.OrderBy))
+	}
+
+	if command.OrderBy[0].Column != models.NAME {
+		t.Errorf("expected ORDER BY name, got %v", command.OrderBy[0].Column)
+	}
+
+	if command.OrderBy[0].Direction != models.ASC {
+		t.Errorf("expected ASC direction, got %v", command.OrderBy[0].Direction)
+	}
+}
+
+func TestParseOrderByContentDesc(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT * FROM *.md WHERE content LIKE '%%' ORDER BY content DESC")
+
+	if len(command.OrderBy) != 1 {
+		t.Fatalf("expected 1 order by clause, got %d", len(command.OrderBy))
+	}
+
+	if command.OrderBy[0].Column != models.CONTENT {
+		t.Errorf("expected ORDER BY content, got %v", command.OrderBy[0].Column)
+	}
+
+	if command.OrderBy[0].Direction != models.DESC {
+		t.Errorf("expected DESC direction, got %v", command.OrderBy[0].Direction)
+	}
+}
+
+func TestParseOrderByMultipleColumns(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT * FROM *.txt WHERE content LIKE '%test%' ORDER BY name ASC, content DESC")
+
+	if len(command.OrderBy) != 2 {
+		t.Fatalf("expected 2 order by clauses, got %d", len(command.OrderBy))
+	}
+
+	if command.OrderBy[0].Column != models.NAME {
+		t.Errorf("expected first ORDER BY name, got %v", command.OrderBy[0].Column)
+	}
+
+	if command.OrderBy[0].Direction != models.ASC {
+		t.Errorf("expected first direction ASC, got %v", command.OrderBy[0].Direction)
+	}
+
+	if command.OrderBy[1].Column != models.CONTENT {
+		t.Errorf("expected second ORDER BY content, got %v", command.OrderBy[1].Column)
+	}
+
+	if command.OrderBy[1].Direction != models.DESC {
+		t.Errorf("expected second direction DESC, got %v", command.OrderBy[1].Direction)
+	}
+}
+
+func TestParseCountWithOrderBy(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT COUNT(*) FROM *.go WHERE content LIKE '%func%' ORDER BY name ASC")
+
+	if command.Action != models.COUNT {
+		t.Fatalf("expected COUNT, got %v", command.Action)
+	}
+
+	if len(command.OrderBy) != 1 {
+		t.Fatalf("expected 1 order by clause, got %d", len(command.OrderBy))
+	}
+
+	if command.OrderBy[0].Column != models.NAME {
+		t.Errorf("expected ORDER BY name, got %v", command.OrderBy[0].Column)
+	}
+
+	if command.OrderBy[0].Direction != models.ASC {
+		t.Errorf("expected ASC direction, got %v", command.OrderBy[0].Direction)
+	}
+}
+
+func TestParseCountNameWithOrderBy(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT COUNT(name) FROM *.txt WHERE content LIKE '%test%' ORDER BY content DESC")
+
+	if command.Action != models.COUNT {
+		t.Fatalf("expected COUNT, got %v", command.Action)
+	}
+
+	if command.SelectTarget != models.NAME {
+		t.Fatalf("expected SelectTarget NAME, got %v", command.SelectTarget)
+	}
+
+	if len(command.OrderBy) != 1 {
+		t.Fatalf("expected 1 order by clause, got %d", len(command.OrderBy))
+	}
+
+	if command.OrderBy[0].Column != models.CONTENT {
+		t.Errorf("expected ORDER BY content, got %v", command.OrderBy[0].Column)
+	}
+
+	if command.OrderBy[0].Direction != models.DESC {
+		t.Errorf("expected DESC direction, got %v", command.OrderBy[0].Direction)
+	}
+}
+
+func TestParseOrderByWithoutDirection(t *testing.T) {
+	parser := mock.NewParser()
+	command := parser.Parse("SELECT * FROM *.txt WHERE content LIKE '%test%' ORDER BY name, content")
+
+	if len(command.OrderBy) != 2 {
+		t.Fatalf("expected 2 order by clauses, got %d", len(command.OrderBy))
+	}
+
+	if command.OrderBy[0].Column != models.NAME {
+		t.Errorf("expected first ORDER BY name, got %v", command.OrderBy[0].Column)
+	}
+
+	if command.OrderBy[1].Column != models.CONTENT {
+		t.Errorf("expected second ORDER BY content, got %v", command.OrderBy[1].Column)
+	}
+}
