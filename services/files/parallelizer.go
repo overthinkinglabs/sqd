@@ -91,3 +91,39 @@ func (parallelizer *Parallelizer) ProcessFilesInParallelNoCount(
 
 	waitingGroup.Wait()
 }
+
+func (parallelizer *Parallelizer) ProcessFilesInParallelWithIndex(
+	files []string,
+	processor func(int, string) error,
+	stats *models.ExecutionStats,
+) {
+	var (
+		mutex        sync.Mutex
+		waitingGroup sync.WaitGroup
+		sem          = make(chan struct{}, models.MAX_CONCURRENT_GOROUTINES)
+	)
+
+	for index, file := range files {
+		waitingGroup.Add(1)
+		sem <- struct{}{}
+
+		go func(index int, file string) {
+			defer waitingGroup.Done()
+			defer func() { <-sem }()
+
+			err := processor(index, file)
+
+			mutex.Lock()
+			if err != nil {
+				parallelizer.utils.PrintProcessingErrorMessage(file, err)
+				stats.Skipped++
+			} else {
+				stats.Processed++
+			}
+
+			mutex.Unlock()
+		}(index, file)
+	}
+
+	waitingGroup.Wait()
+}

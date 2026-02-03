@@ -15,12 +15,25 @@ import (
 
 type Searcher struct {
 	parallelizer *files.Parallelizer
+	sorter       *Sorter
 	utils        *services.Utils
 }
 
-func NewSearcher(parallelizer *files.Parallelizer, utils *services.Utils) *Searcher {
+type searchResult struct {
+	filePath    string
+	lineNumber  int
+	lineContent string
+}
+
+type fileResults struct {
+	results  []searchResult
+	hasMatch bool
+}
+
+func NewSearcher(parallelizer *files.Parallelizer, sorter *Sorter, utils *services.Utils) *Searcher {
 	return &Searcher{
 		parallelizer: parallelizer,
+		sorter:       sorter,
 		utils:        utils,
 	}
 }
@@ -54,66 +67,6 @@ func countMatchingLines(file string, pattern *regexp.Regexp) (int, error) {
 	return count, nil
 }
 
-func (searcher *Searcher) Count(files []string, command models.Command) (int, models.ExecutionStats) {
-	stats := models.ExecutionStats{StartTime: time.Now()}
-
-	if command.WhereTarget == models.NAME && command.WherePattern != nil {
-		files = searcher.filterFilesByName(files, command.WherePattern)
-	}
-
-	switch command.SelectTarget {
-	case models.NAME:
-		if command.WhereTarget == models.NAME && command.WherePattern != nil {
-			stats.Processed = len(files)
-			return len(files), stats
-		}
-
-		total := searcher.parallelizer.ProcessFilesInParallel(files, func(file string) (int, error) {
-			data, err := os.ReadFile(file)
-			if err != nil {
-				return 0, err
-			}
-
-			lines := strings.SplitSeq(string(data), "\n")
-			for line := range lines {
-				if command.Pattern.MatchString(line) {
-					return 1, nil
-				}
-			}
-
-			return 0, nil
-		}, &stats)
-		return total, stats
-	case models.CONTENT, models.ASTERISK:
-		if command.WhereTarget == models.NAME && command.WherePattern != nil {
-			total := 0
-			for _, file := range files {
-				data, err := os.ReadFile(file)
-				if err != nil {
-					stats.Skipped++
-					continue
-				}
-				lines := strings.Split(string(data), "\n")
-				total += len(lines)
-				stats.Processed++
-			}
-			return total, stats
-		}
-
-		total := searcher.parallelizer.ProcessFilesInParallel(files, func(file string) (int, error) {
-			return countMatchingLines(file, command.Pattern)
-		}, &stats)
-
-		return total, stats
-	default:
-		total := searcher.parallelizer.ProcessFilesInParallel(files, func(file string) (int, error) {
-			return countMatchingLines(file, command.Pattern)
-		}, &stats)
-
-		return total, stats
-	}
-}
-
 func (searcher *Searcher) Select(files []string, command models.Command) models.ExecutionStats {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
@@ -122,8 +75,14 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 	}
 
 	if command.SelectTarget == models.NAME && command.WhereTarget == models.NAME {
+		results := make([]searchResult, 0, len(files))
 		for _, file := range files {
-			fmt.Printf("%s\n", searcher.utils.HighlightName(file, command.WherePattern))
+			results = append(results, searchResult{filePath: file})
+		}
+
+		searcher.sorter.sortResults(results, command.OrderBy)
+		for _, result := range results {
+			fmt.Printf("%s\n", searcher.utils.HighlightName(result.filePath, command.WherePattern))
 		}
 
 		stats.Processed = len(files)
@@ -131,6 +90,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 	}
 
 	if command.WhereTarget == models.NAME && (command.SelectTarget == models.ASTERISK || command.SelectTarget == models.CONTENT) {
+		results := make([]searchResult, 0)
 		for _, file := range files {
 			data, err := os.ReadFile(file)
 			if err != nil {
@@ -140,43 +100,87 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 
 			lines := strings.Split(string(data), "\n")
 			for i, line := range lines {
-				switch command.SelectTarget {
-				case models.CONTENT:
-					fmt.Printf("%s\n", line)
-				case models.ASTERISK:
-					fmt.Printf("%s:%d: %s\n", searcher.utils.HighlightName(file, command.WherePattern), i+1, line)
-				}
+				results = append(results, searchResult{
+					filePath:    file,
+					lineNumber:  i + 1,
+					lineContent: line,
+				})
 			}
 			stats.Processed++
 		}
+
+		searcher.sorter.sortResults(results, command.OrderBy)
+		for _, result := range results {
+			switch command.SelectTarget {
+			case models.CONTENT:
+				fmt.Printf("%s\n", result.lineContent)
+			case models.ASTERISK:
+				fmt.Printf("%s:%d: %s\n", searcher.utils.HighlightName(result.filePath, command.WherePattern), result.lineNumber, result.lineContent)
+			}
+		}
+
 		return stats
 	}
 
-	searcher.parallelizer.ProcessFilesInParallelNoCount(files, func(file string) error {
+	allFileResults := make([]fileResults, len(files))
+
+	searcher.parallelizer.ProcessFilesInParallelWithIndex(files, func(index int, file string) error {
 		data, err := os.ReadFile(file)
 		if err != nil {
 			return err
 		}
 
 		lines := strings.Split(string(data), "\n")
-		matched := false
+		searchResults := fileResults{results: make([]searchResult, 0)}
+
 		for i, line := range lines {
 			if command.Pattern.MatchString(line) {
-				matched = true
-				switch command.SelectTarget {
-				case models.CONTENT:
-					fmt.Printf("%s\n", searcher.utils.HighlightMatch(line, command.Pattern))
-				case models.ASTERISK:
-					fmt.Printf("%s:%d: %s\n", file, i+1, searcher.utils.HighlightMatch(line, command.Pattern))
-				}
+				searchResults.hasMatch = true
+				searchResults.results = append(searchResults.results, searchResult{
+					filePath:    file,
+					lineNumber:  i + 1,
+					lineContent: line,
+				})
 			}
 		}
 
-		if matched && command.SelectTarget == models.NAME {
-			fmt.Printf("%s\n", searcher.utils.HighlightName(file, command.Pattern))
-		}
+		allFileResults[index] = searchResults
 		return nil
 	}, &stats)
+
+	results := make([]searchResult, 0)
+	filesWithMatches := make([]string, 0)
+	for i, searchResults := range allFileResults {
+		if searchResults.hasMatch {
+			results = append(results, searchResults.results...)
+			if command.SelectTarget == models.NAME {
+				filesWithMatches = append(filesWithMatches, files[i])
+			}
+		}
+	}
+
+	if command.SelectTarget == models.NAME {
+		nameResults := make([]searchResult, 0, len(filesWithMatches))
+		for _, file := range filesWithMatches {
+			nameResults = append(nameResults, searchResult{filePath: file})
+		}
+
+		searcher.sorter.sortResults(nameResults, command.OrderBy)
+		for _, result := range nameResults {
+			fmt.Printf("%s\n", searcher.utils.HighlightName(result.filePath, command.Pattern))
+		}
+		return stats
+	}
+
+	searcher.sorter.sortResults(results, command.OrderBy)
+	for _, result := range results {
+		switch command.SelectTarget {
+		case models.CONTENT:
+			fmt.Printf("%s\n", searcher.utils.HighlightMatch(result.lineContent, command.Pattern))
+		case models.ASTERISK:
+			fmt.Printf("%s:%d: %s\n", result.filePath, result.lineNumber, searcher.utils.HighlightMatch(result.lineContent, command.Pattern))
+		}
+	}
 
 	return stats
 }

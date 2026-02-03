@@ -137,6 +137,10 @@ func (lexer *Lexer) lookupKeyword(ident string) models.TokenType {
 		"LIKE":    models.LIKE,
 		"NAME":    models.NAME,
 		"CONTENT": models.CONTENT,
+		"ORDER":   models.ORDER,
+		"BY":      models.BY,
+		"ASC":     models.ASC,
+		"DESC":    models.DESC,
 	}
 
 	if token, ok := keywords[upper]; ok {
