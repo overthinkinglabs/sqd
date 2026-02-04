@@ -38,18 +38,23 @@ func NewSearcher(parallelizer *files.Parallelizer, sorter *Sorter, utils *servic
 	}
 }
 
-func (searcher *Searcher) filterFilesByName(files []string, pattern *regexp.Regexp) []string {
+func (searcher *Searcher) filterFilesByName(files []string, pattern *regexp.Regexp, negate bool) []string {
 	filtered := make([]string, 0, len(files))
 	for _, file := range files {
 		fileName := filepath.Base(file)
-		if pattern.MatchString(fileName) {
+		matches := pattern.MatchString(fileName)
+		if negate {
+			matches = !matches
+		}
+
+		if matches {
 			filtered = append(filtered, file)
 		}
 	}
 	return filtered
 }
 
-func countMatchingLines(file string, pattern *regexp.Regexp) (int, error) {
+func countMatchingLines(file string, pattern *regexp.Regexp, negate bool) (int, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return 0, err
@@ -59,7 +64,12 @@ func countMatchingLines(file string, pattern *regexp.Regexp) (int, error) {
 	count := 0
 
 	for _, line := range lines {
-		if pattern.MatchString(line) {
+		matches := pattern.MatchString(line)
+		if negate {
+			matches = !matches
+		}
+
+		if matches {
 			count++
 		}
 	}
@@ -71,7 +81,7 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
 	if command.WhereTarget == models.NAME && command.WherePattern != nil {
-		files = searcher.filterFilesByName(files, command.WherePattern)
+		files = searcher.filterFilesByName(files, command.WherePattern, command.NegateFileName)
 	}
 
 	if command.SelectTarget == models.NAME && command.WhereTarget == models.NAME {
@@ -134,7 +144,12 @@ func (searcher *Searcher) Select(files []string, command models.Command) models.
 		searchResults := fileResults{results: make([]searchResult, 0)}
 
 		for i, line := range lines {
-			if command.Pattern.MatchString(line) {
+			matches := command.Pattern.MatchString(line)
+			if command.NegateContent {
+				matches = !matches
+			}
+
+			if matches {
 				searchResults.hasMatch = true
 				searchResults.results = append(searchResults.results, searchResult{
 					filePath:    file,

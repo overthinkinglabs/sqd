@@ -20,12 +20,21 @@ func NewUpdater(processor *files.Processor, utils *services.Utils) *Updater {
 	}
 }
 
-func (updater *Updater) Single(file string, pattern *regexp.Regexp, replace string) (int, error) {
+func (updater *Updater) Single(file string, pattern *regexp.Regexp, negate bool, replace string) (int, error) {
 	return updater.processor.ProcessFile(file, func(lines []string) ([]string, int) {
 		count := 0
 		for i, line := range lines {
-			if pattern.MatchString(line) {
+			matches := pattern.MatchString(line)
+			if negate {
+				matches = !matches
+			}
+
+			if matches {
 				lines[i] = pattern.ReplaceAllLiteralString(line, replace)
+				if negate {
+					lines[i] = replace
+				}
+
 				count++
 			}
 		}
@@ -38,8 +47,17 @@ func (updater *Updater) Batch(file string, replacements []models.Replacement) (i
 		count := 0
 		for i, line := range lines {
 			for _, replacement := range replacements {
-				if replacement.Pattern.MatchString(line) {
+				matches := replacement.Pattern.MatchString(line)
+				if replacement.Negate {
+					matches = !matches
+				}
+
+				if matches {
 					lines[i] = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
+					if replacement.Negate {
+						lines[i] = replacement.Replace
+					}
+
 					count++
 					break
 				}

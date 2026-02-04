@@ -117,11 +117,20 @@ func setWhereClause(batchParser *BatchParser, replacement *models.Replacement, l
 		if token.Type == models.STRING {
 			pattern := regexp.MustCompile("^" + regexp.QuoteMeta(token.Literal) + "$")
 			replacement.Pattern = pattern
+			replacement.Negate = false
+		}
+	case models.NOT_EQUALS:
+		token = lexer.NextToken()
+		if token.Type == models.STRING {
+			pattern := regexp.MustCompile("^" + regexp.QuoteMeta(token.Literal) + "$")
+			replacement.Pattern = pattern
+			replacement.Negate = true
 		}
 	case models.LIKE:
 		token = lexer.NextToken()
 		if token.Type == models.STRING {
 			replacement.Pattern = batchParser.extractor.likeToRegex(token.Literal)
+			replacement.Negate = false
 		}
 	}
 }

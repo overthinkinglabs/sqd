@@ -93,7 +93,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 				}
 			} else {
 				updateFunc = func(file string) (int, error) {
-					return dispatcher.updater.Single(file, command.Pattern, command.Replace)
+					return dispatcher.updater.Single(file, command.Pattern, command.NegateContent, command.Replace)
 				}
 			}
 
@@ -111,7 +111,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			if command.IsBatch {
 				count, err = dispatcher.updater.Batch(file, command.Replacements)
 			} else {
-				count, err = dispatcher.updater.Single(file, command.Pattern, command.Replace)
+				count, err = dispatcher.updater.Single(file, command.Pattern, command.NegateContent, command.Replace)
 			}
 
 			if err != nil {
@@ -147,7 +147,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 				}
 			} else {
 				deleteFunc = func(file string) (int, error) {
-					return dispatcher.deleter.Single(file, command.Pattern)
+					return dispatcher.deleter.Single(file, command.Pattern, command.NegateContent)
 				}
 			}
 
@@ -165,7 +165,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			if command.IsBatch {
 				count, err = dispatcher.deleter.Batch(file, command.Deletions)
 			} else {
-				count, err = dispatcher.deleter.Single(file, command.Pattern)
+				count, err = dispatcher.deleter.Single(file, command.Pattern, command.NegateContent)
 			}
 
 			if err != nil {

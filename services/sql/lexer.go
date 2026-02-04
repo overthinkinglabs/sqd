@@ -80,6 +80,17 @@ func (lexer *Lexer) NextToken() models.Token {
 		token = models.Token{Type: models.EQUALS, Literal: string(lexer.currentChar)}
 		lexer.readChar()
 		return token
+	case '!':
+		if lexer.peekChar() == '=' {
+			lexer.readChar()
+			token = models.Token{Type: models.NOT_EQUALS, Literal: "!="}
+			lexer.readChar()
+			return token
+		}
+		token.Literal = string(lexer.currentChar)
+		token.Type = models.IDENTIFIER
+		lexer.readChar()
+		return token
 	case ',':
 		token = models.Token{Type: models.COMMA, Literal: string(lexer.currentChar)}
 		lexer.readChar()
