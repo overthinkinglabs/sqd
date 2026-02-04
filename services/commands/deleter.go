@@ -20,15 +20,21 @@ func NewDeleter(processor *files.Processor, utils *services.Utils) *Deleter {
 	}
 }
 
-func (deleter *Deleter) Single(file string, pattern *regexp.Regexp) (int, error) {
+func (deleter *Deleter) Single(file string, pattern *regexp.Regexp, negate bool) (int, error) {
 	return deleter.processor.ProcessFile(file, func(lines []string) ([]string, int) {
 		filtered := []string{}
 		count := 0
 		for _, line := range lines {
-			if !pattern.MatchString(line) {
+			matches := pattern.MatchString(line)
+			if negate {
+				matches = !matches
+			}
+
+			if !matches {
 				filtered = append(filtered, line)
 				continue
 			}
+
 			count++
 		}
 		return filtered, count
@@ -42,15 +48,23 @@ func (deleter *Deleter) Batch(file string, deletions []models.Deletion) (int, er
 		for _, line := range lines {
 			shouldDelete := false
 			for _, deletion := range deletions {
-				if deletion.Pattern.MatchString(line) {
+				matches := deletion.Pattern.MatchString(line)
+				if deletion.Negate {
+					matches = !matches
+				}
+
+				if matches {
 					shouldDelete = true
-					count++
 					break
 				}
 			}
-			if !shouldDelete {
-				filtered = append(filtered, line)
+
+			if shouldDelete {
+				count++
+				continue
 			}
+
+			filtered = append(filtered, line)
 		}
 		return filtered, count
 	})

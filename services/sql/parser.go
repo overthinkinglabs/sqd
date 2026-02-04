@@ -78,13 +78,22 @@ func (parser *Parser) parseSelectTarget(sql string) models.TokenType {
 	return models.ASTERISK
 }
 
-func (parser *Parser) parseComparison(pattern **regexp.Regexp) {
+func (parser *Parser) parseComparison(pattern **regexp.Regexp, negate *bool) {
 	parser.nextToken()
 
 	if parser.currentTokenIs(models.EQUALS) {
 		parser.nextToken()
 		exactMatch := parser.currentToken.Literal
 		*pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+		*negate = false
+		return
+	}
+
+	if parser.currentTokenIs(models.NOT_EQUALS) {
+		parser.nextToken()
+		exactMatch := parser.currentToken.Literal
+		*pattern = regexp.MustCompile("^" + regexp.QuoteMeta(exactMatch) + "$")
+		*negate = true
 		return
 	}
 
@@ -92,6 +101,7 @@ func (parser *Parser) parseComparison(pattern **regexp.Regexp) {
 		parser.nextToken()
 		likePattern := parser.currentToken.Literal
 		*pattern = parser.extractor.likeToRegex(likePattern)
+		*negate = false
 	}
 }
 
@@ -104,12 +114,12 @@ func (parser *Parser) parseWhereClause(command *models.Command) {
 
 	if parser.currentTokenIs(models.NAME) {
 		command.WhereTarget = models.NAME
-		parser.parseComparison(&command.WherePattern)
+		parser.parseComparison(&command.WherePattern, &command.NegateFileName)
 		return
 	}
 
 	if parser.currentTokenIs(models.CONTENT) {
-		parser.parseComparison(&command.Pattern)
+		parser.parseComparison(&command.Pattern, &command.NegateContent)
 	}
 }
 
@@ -208,12 +218,17 @@ func (parser *Parser) Parse(sql string) models.Command {
 	}
 
 	if command.Action == models.DELETE {
-		whereCount := strings.Count(upperSql, "WHERE")
-		if whereCount > 1 {
-			command.IsBatch = true
-			command.File = parser.extractor.extractFilename(sql, "DELETE FROM", "WHERE")
-			command.Deletions = parser.batchParser.parseDeletions(sql)
-			return command
+		whereIdx := strings.Index(upperSql, "WHERE")
+		if whereIdx != -1 {
+			whereClause := sql[whereIdx+5:]
+			commaCount := strings.Count(whereClause, ",")
+
+			if commaCount > 0 {
+				command.IsBatch = true
+				command.File = parser.extractor.extractFilename(sql, "DELETE FROM", "WHERE")
+				command.Deletions = parser.batchParser.parseDeletions(sql)
+				return command
+			}
 		}
 	}
 

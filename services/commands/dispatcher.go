@@ -46,6 +46,12 @@ func NewDispatcher(
 func (dispatcher *Dispatcher) Execute(command models.Command, files []string, useTransaction bool, dryRun bool) {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
+	if (command.Action == models.UPDATE || command.Action == models.DELETE) &&
+		command.WhereTarget == models.NAME {
+		fmt.Fprintf(os.Stderr, "Error: UPDATE and DELETE operations cannot filter by file name. Use WHERE content = ... instead\n")
+		return
+	}
+
 	if command.Pattern == nil &&
 		command.WherePattern == nil &&
 		((command.Action == models.SELECT ||
@@ -93,7 +99,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 				}
 			} else {
 				updateFunc = func(file string) (int, error) {
-					return dispatcher.updater.Single(file, command.Pattern, command.Replace)
+					return dispatcher.updater.Single(file, command.Pattern, command.NegateContent, command.Replace)
 				}
 			}
 
@@ -111,7 +117,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			if command.IsBatch {
 				count, err = dispatcher.updater.Batch(file, command.Replacements)
 			} else {
-				count, err = dispatcher.updater.Single(file, command.Pattern, command.Replace)
+				count, err = dispatcher.updater.Single(file, command.Pattern, command.NegateContent, command.Replace)
 			}
 
 			if err != nil {
@@ -147,7 +153,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 				}
 			} else {
 				deleteFunc = func(file string) (int, error) {
-					return dispatcher.deleter.Single(file, command.Pattern)
+					return dispatcher.deleter.Single(file, command.Pattern, command.NegateContent)
 				}
 			}
 
@@ -165,7 +171,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			if command.IsBatch {
 				count, err = dispatcher.deleter.Batch(file, command.Deletions)
 			} else {
-				count, err = dispatcher.deleter.Single(file, command.Pattern)
+				count, err = dispatcher.deleter.Single(file, command.Pattern, command.NegateContent)
 			}
 
 			if err != nil {

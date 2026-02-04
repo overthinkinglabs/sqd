@@ -25,7 +25,7 @@ func (counter *Counter) Count(files []string, command models.Command) (int, mode
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
 	if command.WhereTarget == models.NAME && command.WherePattern != nil {
-		files = counter.searcher.filterFilesByName(files, command.WherePattern)
+		files = counter.searcher.filterFilesByName(files, command.WherePattern, command.NegateFileName)
 	}
 
 	switch command.SelectTarget {
@@ -43,7 +43,12 @@ func (counter *Counter) Count(files []string, command models.Command) (int, mode
 
 			lines := strings.SplitSeq(string(data), "\n")
 			for line := range lines {
-				if command.Pattern.MatchString(line) {
+				matches := command.Pattern.MatchString(line)
+				if command.NegateContent {
+					matches = !matches
+				}
+
+				if matches {
 					return 1, nil
 				}
 			}
@@ -69,13 +74,13 @@ func (counter *Counter) Count(files []string, command models.Command) (int, mode
 		}
 
 		total := counter.parallelizer.ProcessFilesInParallel(files, func(file string) (int, error) {
-			return countMatchingLines(file, command.Pattern)
+			return countMatchingLines(file, command.Pattern, command.NegateContent)
 		}, &stats)
 
 		return total, stats
 	default:
 		total := counter.parallelizer.ProcessFilesInParallel(files, func(file string) (int, error) {
-			return countMatchingLines(file, command.Pattern)
+			return countMatchingLines(file, command.Pattern, command.NegateContent)
 		}, &stats)
 
 		return total, stats

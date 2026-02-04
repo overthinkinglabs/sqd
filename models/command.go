@@ -5,17 +5,19 @@ import (
 )
 
 type Command struct {
-	Action       TokenType
-	File         string
-	Pattern      *regexp.Regexp
-	Replace      string
-	Replacements []Replacement
-	Deletions    []Deletion
-	IsBatch      bool
-	SelectTarget TokenType
-	WhereTarget  TokenType
-	WherePattern *regexp.Regexp
-	OrderBy      []OrderBy
+	Action         TokenType
+	File           string
+	Pattern        *regexp.Regexp
+	NegateContent  bool
+	Replace        string
+	Replacements   []Replacement
+	Deletions      []Deletion
+	IsBatch        bool
+	SelectTarget   TokenType
+	WhereTarget    TokenType
+	WherePattern   *regexp.Regexp
+	NegateFileName bool
+	OrderBy        []OrderBy
 }
 
 type OrderBy struct {
@@ -25,9 +27,11 @@ type OrderBy struct {
 
 type Replacement struct {
 	Pattern *regexp.Regexp
+	Negate  bool
 	Replace string
 }
 
 type Deletion struct {
 	Pattern *regexp.Regexp
+	Negate  bool
 }

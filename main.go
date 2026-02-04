@@ -137,6 +137,7 @@ func main() {
 		fmt.Println("  ORDER BY 	Sort matching lines (using name or content)")
 		fmt.Println("\nOperators:")
 		fmt.Println("  =		Exact match")
+		fmt.Println("  !=		Negation of exact match")
 		fmt.Println("  LIKE		Pattern match with wildcards (%)")
 		fmt.Println("\nExamples:")
 		fmt.Println("  sqd 'SELECT * | name | content FROM file.txt WHERE content LIKE pattern ORDER BY name | content ASC | DESC'")

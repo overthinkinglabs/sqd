@@ -31,11 +31,20 @@ func (dryRunner *DryRunner) validateAndCount(file string, command models.Command
 	return dryRunner.countDeletions(lines, command), true
 }
 
-func (dryRunner *DryRunner) countUpdatesInLines(lines []string, pattern *regexp.Regexp, replace string) int {
+func (dryRunner *DryRunner) countUpdatesInLines(lines []string, pattern *regexp.Regexp, negate bool, replace string) int {
 	count := 0
 	for _, line := range lines {
-		if pattern.MatchString(line) {
-			newLine := pattern.ReplaceAllLiteralString(line, replace)
+		matches := pattern.MatchString(line)
+		if negate {
+			matches = !matches
+		}
+
+		if matches {
+			newLine := replace
+			if !negate {
+				newLine = pattern.ReplaceAllLiteralString(line, replace)
+			}
+
 			if newLine != line {
 				count++
 			}
@@ -50,8 +59,16 @@ func (dryRunner *DryRunner) countUpdatesInLinesInBatch(lines []string, replaceme
 	for _, line := range lines {
 		original := line
 		for _, replacement := range replacements {
-			if replacement.Pattern.MatchString(line) {
-				line = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
+			matches := replacement.Pattern.MatchString(line)
+			if replacement.Negate {
+				matches = !matches
+			}
+
+			if matches {
+				line = replacement.Replace
+				if !replacement.Negate {
+					line = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
+				}
 				break
 			}
 		}
@@ -64,10 +81,15 @@ func (dryRunner *DryRunner) countUpdatesInLinesInBatch(lines []string, replaceme
 	return count
 }
 
-func (dryRunner *DryRunner) countDeletionsInLines(lines []string, pattern *regexp.Regexp) int {
+func (dryRunner *DryRunner) countDeletionsInLines(lines []string, pattern *regexp.Regexp, negate bool) int {
 	count := 0
 	for _, line := range lines {
-		if pattern.MatchString(line) {
+		matches := pattern.MatchString(line)
+		if negate {
+			matches = !matches
+		}
+
+		if matches {
 			count++
 		}
 	}
@@ -79,7 +101,12 @@ func (dryRunner *DryRunner) countDeletionsInLinesInBatch(lines []string, deletio
 	count := 0
 	for _, line := range lines {
 		for _, deletion := range deletions {
-			if deletion.Pattern.MatchString(line) {
+			matches := deletion.Pattern.MatchString(line)
+			if deletion.Negate {
+				matches = !matches
+			}
+
+			if matches {
 				count++
 				break
 			}
@@ -94,7 +121,7 @@ func (dryRunner *DryRunner) countUpdates(lines []string, command models.Command)
 		return dryRunner.countUpdatesInLinesInBatch(lines, command.Replacements)
 	}
 
-	return dryRunner.countUpdatesInLines(lines, command.Pattern, command.Replace)
+	return dryRunner.countUpdatesInLines(lines, command.Pattern, command.NegateContent, command.Replace)
 }
 
 func (dryRunner *DryRunner) countDeletions(lines []string, command models.Command) int {
@@ -102,7 +129,7 @@ func (dryRunner *DryRunner) countDeletions(lines []string, command models.Comman
 		return dryRunner.countDeletionsInLinesInBatch(lines, command.Deletions)
 	}
 
-	return dryRunner.countDeletionsInLines(lines, command.Pattern)
+	return dryRunner.countDeletionsInLines(lines, command.Pattern, command.NegateContent)
 }
 
 func (dryRunner *DryRunner) validateAndReadFile(file string, stats *models.ExecutionStats) ([]string, bool) {

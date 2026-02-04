@@ -34,6 +34,25 @@ func (batchParser *BatchParser) parseDeletions(sql string) []models.Deletion {
 				token = lexer.NextToken()
 				if token.Type == models.STRING {
 					deletion.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(token.Literal) + "$")
+					deletion.Negate = false
+					break
+				}
+			}
+
+			if token.Type == models.NOT_EQUALS {
+				token = lexer.NextToken()
+				if token.Type == models.STRING {
+					deletion.Pattern = regexp.MustCompile("^" + regexp.QuoteMeta(token.Literal) + "$")
+					deletion.Negate = true
+					break
+				}
+			}
+
+			if token.Type == models.LIKE {
+				token = lexer.NextToken()
+				if token.Type == models.STRING {
+					deletion.Pattern = batchParser.extractor.likeToRegex(token.Literal)
+					deletion.Negate = false
 					break
 				}
 			}
@@ -117,11 +136,20 @@ func setWhereClause(batchParser *BatchParser, replacement *models.Replacement, l
 		if token.Type == models.STRING {
 			pattern := regexp.MustCompile("^" + regexp.QuoteMeta(token.Literal) + "$")
 			replacement.Pattern = pattern
+			replacement.Negate = false
+		}
+	case models.NOT_EQUALS:
+		token = lexer.NextToken()
+		if token.Type == models.STRING {
+			pattern := regexp.MustCompile("^" + regexp.QuoteMeta(token.Literal) + "$")
+			replacement.Pattern = pattern
+			replacement.Negate = true
 		}
 	case models.LIKE:
 		token = lexer.NextToken()
 		if token.Type == models.STRING {
 			replacement.Pattern = batchParser.extractor.likeToRegex(token.Literal)
+			replacement.Negate = false
 		}
 	}
 }
