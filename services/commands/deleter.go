@@ -48,7 +48,12 @@ func (deleter *Deleter) Batch(file string, deletions []models.Deletion) (int, er
 		for _, line := range lines {
 			shouldDelete := false
 			for _, deletion := range deletions {
-				if deletion.Pattern.MatchString(line) {
+				matches := deletion.Pattern.MatchString(line)
+				if deletion.Negate {
+					matches = !matches
+				}
+
+				if matches {
 					shouldDelete = true
 					break
 				}

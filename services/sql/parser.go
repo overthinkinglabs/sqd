@@ -221,9 +221,9 @@ func (parser *Parser) Parse(sql string) models.Command {
 		whereIdx := strings.Index(upperSql, "WHERE")
 		if whereIdx != -1 {
 			whereClause := sql[whereIdx+5:]
-			equalsCount := strings.Count(whereClause, "=")
+			commaCount := strings.Count(whereClause, ",")
 
-			if equalsCount > 1 {
+			if commaCount > 0 {
 				command.IsBatch = true
 				command.File = parser.extractor.extractFilename(sql, "DELETE FROM", "WHERE")
 				command.Deletions = parser.batchParser.parseDeletions(sql)

@@ -30,9 +30,9 @@ func (updater *Updater) Single(file string, pattern *regexp.Regexp, negate bool,
 			}
 
 			if matches {
-				lines[i] = pattern.ReplaceAllLiteralString(line, replace)
-				if negate {
-					lines[i] = replace
+				lines[i] = replace
+				if !negate {
+					lines[i] = pattern.ReplaceAllLiteralString(line, replace)
 				}
 
 				count++
@@ -53,9 +53,9 @@ func (updater *Updater) Batch(file string, replacements []models.Replacement) (i
 				}
 
 				if matches {
-					lines[i] = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
-					if replacement.Negate {
-						lines[i] = replacement.Replace
+					lines[i] = replacement.Replace
+					if !replacement.Negate {
+						lines[i] = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
 					}
 
 					count++

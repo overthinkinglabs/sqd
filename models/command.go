@@ -33,4 +33,5 @@ type Replacement struct {
 
 type Deletion struct {
 	Pattern *regexp.Regexp
+	Negate  bool
 }

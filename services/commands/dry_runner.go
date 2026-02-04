@@ -38,10 +38,11 @@ func (dryRunner *DryRunner) countUpdatesInLines(lines []string, pattern *regexp.
 		if negate {
 			matches = !matches
 		}
+
 		if matches {
-			newLine := pattern.ReplaceAllLiteralString(line, replace)
-			if negate {
-				newLine = replace
+			newLine := replace
+			if !negate {
+				newLine = pattern.ReplaceAllLiteralString(line, replace)
 			}
 
 			if newLine != line {
@@ -64,9 +65,9 @@ func (dryRunner *DryRunner) countUpdatesInLinesInBatch(lines []string, replaceme
 			}
 
 			if matches {
-				line = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
-				if replacement.Negate {
-					line = replacement.Replace
+				line = replacement.Replace
+				if !replacement.Negate {
+					line = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
 				}
 				break
 			}
@@ -100,7 +101,12 @@ func (dryRunner *DryRunner) countDeletionsInLinesInBatch(lines []string, deletio
 	count := 0
 	for _, line := range lines {
 		for _, deletion := range deletions {
-			if deletion.Pattern.MatchString(line) {
+			matches := deletion.Pattern.MatchString(line)
+			if deletion.Negate {
+				matches = !matches
+			}
+
+			if matches {
 				count++
 				break
 			}
