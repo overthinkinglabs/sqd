@@ -4,9 +4,9 @@ Traditional Unix tools (grep, sed, awk) are powerful but have inconsistent synta
 
 ## Getting Started
 
-This project requires **Go version 1.25.4 or higher**. Make sure you have a compatible version installed. If needed, download the latest version from [https://go.dev/dl/](https://go.dev/dl/)
+This project requires **Go >= 1.25.4**. Make sure you have a compatible version installed. If needed, download the latest version from [https://go.dev/dl/](https://go.dev/dl/)
 
-1. **Installation**: Installs sqd in the system
+1. **Installation**: Install sqd on your system
 
     ```bash
     go install github.com/albertoboccolini/sqd@latest
@@ -42,9 +42,9 @@ sqd 'DELETE FROM *.log WHERE content LIKE "%DEBUG%"'
 
 You can reference the following columns in the `SELECT` clause:
 
-* `name`: the file name.
-* `content`: the content of each line.
-* `*`: both file name and content.
+- `name`: the file name.
+- `content`: the content of each line.
+- `*`: both file name and content.
 
 Examples:
 
@@ -56,10 +56,35 @@ sqd 'SELECT COUNT(content) FROM *.md WHERE content LIKE "### %"'
 # Counts the total number of matching lines across all files.
 ```
 
+## Ordering
+
+You can control the order of results using the `ORDER BY` clause. This is useful when you want to sort lines by file name, by content, or by a combination of both. You can specify the sorting direction:
+
+- `ASC`: ascending order (default). Values are sorted from A to Z.
+
+- `DESC`: descending order. Values are sorted from Z to A.
+
+```bash
+# Order by content (ascending by default)
+sqd 'SELECT name FROM *.md WHERE content LIKE "- [ ]%" ORDER BY content'
+
+# Order by file name descending
+sqd 'SELECT name FROM *.md WHERE content LIKE "- [ ]%" ORDER BY name DESC'
+```
+
+You can also apply multiple ordering rules. The first column is used as the primary key, and the following ones are used to break ties:
+
+```bash
+sqd 'SELECT * FROM *.md WHERE content LIKE "- [ ]%" ORDER BY content ASC, name DESC'
+```
+
+In this example, lines are sorted alphabetically by `content`, and when two lines have the same content, they are ordered by file name in descending order.
+
 ## Flags
 
-* `-d`, `--dry-run`: Display the actions that would be performed without modifying any files.
-* `-t`, `--transaction`: Apply changes atomically. If any operation fails, all changes are rolled back.
+- `-f`, `--file`: Runs all queries from a file. Useful for refactoring and repetitive tasks.
+- `-d`, `--dry-run`: Display the actions that would be performed without modifying any files.
+- `-t`, `--transaction`: Apply changes atomically. If any operation fails, all changes are rolled back.
 
 ## The power of sqd
 
@@ -79,7 +104,7 @@ Let's suppose we have a file with multiple similar titles, but we only want to c
 ## Title 2 TO be updated
 ```
 
-With only one sqd command
+With a single sqd command
 
 ```bash
 sqd 'UPDATE example.md 
