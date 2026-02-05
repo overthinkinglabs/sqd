@@ -7,6 +7,7 @@ import (
 
 	"github.com/albertoboccolini/sqd/models"
 	"github.com/albertoboccolini/sqd/services"
+	"github.com/albertoboccolini/sqd/services/dry_mode"
 	"github.com/albertoboccolini/sqd/services/files"
 )
 
@@ -16,7 +17,7 @@ type Dispatcher struct {
 	updater       *Updater
 	deleter       *Deleter
 	transactioner *Transactioner
-	dryRunner     *DryRunner
+	dryModeRunner *dry_mode.Runner
 	utils         *services.Utils
 	parallelizer  *files.Parallelizer
 }
@@ -27,7 +28,7 @@ func NewDispatcher(
 	updater *Updater,
 	deleter *Deleter,
 	transactioner *Transactioner,
-	dryRunner *DryRunner,
+	dryModeRunner *dry_mode.Runner,
 	utils *services.Utils,
 	parallelizer *files.Parallelizer,
 ) *Dispatcher {
@@ -37,13 +38,13 @@ func NewDispatcher(
 		updater:       updater,
 		deleter:       deleter,
 		transactioner: transactioner,
-		dryRunner:     dryRunner,
+		dryModeRunner: dryModeRunner,
 		utils:         utils,
 		parallelizer:  parallelizer,
 	}
 }
 
-func (dispatcher *Dispatcher) Execute(command models.Command, files []string, useTransaction bool, dryRun bool) {
+func (dispatcher *Dispatcher) Execute(command models.Command, files []string, useTransaction bool, dryRun bool, showDetailedOutputInDryMode bool) {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
 	if (command.Action == models.UPDATE || command.Action == models.DELETE) &&
@@ -82,7 +83,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 
 	if command.Action == models.UPDATE {
 		if dryRun {
-			isValid := dispatcher.dryRunner.Validate(command, files, &stats, useTransaction)
+			isValid := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
 			status := "fail"
 			if isValid {
 				status = "pass"
@@ -136,7 +137,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 
 	if command.Action == models.DELETE {
 		if dryRun {
-			isValid := dispatcher.dryRunner.Validate(command, files, &stats, useTransaction)
+			isValid := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
 			status := "fail"
 			if isValid {
 				status = "pass"
@@ -158,7 +159,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			}
 
 			total := dispatcher.transactioner.Delete(files, deleteFunc, &stats)
-			fmt.Printf("Deleted: %d lines\n", total)
+			dispatcher.utils.PrintDeleteMessage(total)
 			dispatcher.utils.PrintStats(stats)
 			return
 		}
@@ -184,7 +185,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			stats.Processed++
 		}
 
-		fmt.Printf("Deleted: %d lines\n", total)
+		dispatcher.utils.PrintDeleteMessage(total)
 		dispatcher.utils.PrintStats(stats)
 	}
 }

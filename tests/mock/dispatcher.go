@@ -11,7 +11,7 @@ func NewDispatcher() *commands.Dispatcher {
 	processor := files.NewProcessor(utils)
 
 	parallelizer := files.NewParallelizer(utils)
-	dryRunner := commands.NewDryRunner(utils)
+	dryModeRunner := NewDryModeRunner()
 	transactioner := commands.NewTransactioner(utils)
 	sorter := commands.NewSorter()
 	searcher := commands.NewSearcher(parallelizer, sorter, utils)
@@ -25,7 +25,7 @@ func NewDispatcher() *commands.Dispatcher {
 		updater,
 		deleter,
 		transactioner,
-		dryRunner,
+		dryModeRunner,
 		utils,
 		parallelizer,
 	)

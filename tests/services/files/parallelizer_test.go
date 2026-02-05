@@ -28,7 +28,7 @@ func TestParallelProcessingWithErrors(t *testing.T) {
 	parser := mock.NewParser()
 	command := parser.Parse("COUNT parallel_*.txt WHERE content LIKE 'content'")
 
-	dispatcher.Execute(command, files, false, false)
+	dispatcher.Execute(command, files, false, false, false)
 
 	if _, err := os.Stat(file1); err != nil {
 		t.Error("valid file1 should still exist after processing")
@@ -60,7 +60,7 @@ func TestParallelProcessingConcurrencyLimit(t *testing.T) {
 	parser := mock.NewParser()
 	command := parser.Parse("COUNT concurrent_test_*.txt WHERE content LIKE 'test'")
 
-	dispatcher.Execute(command, files, false, false)
+	dispatcher.Execute(command, files, false, false, false)
 
 	for i, file := range files {
 		if _, err := os.Stat(file); err != nil {
@@ -89,7 +89,7 @@ func TestParallelProcessingMaintainsFileIntegrity(t *testing.T) {
 	parser := mock.NewParser()
 	command := parser.Parse("COUNT integrity_test_*.txt WHERE content LIKE 'line'")
 
-	dispatcher.Execute(command, files, false, false)
+	dispatcher.Execute(command, files, false, false, false)
 
 	for file, expected := range expectedContent {
 		data, err := os.ReadFile(file)

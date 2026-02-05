@@ -11,6 +11,7 @@ import (
 	"github.com/albertoboccolini/sqd/models"
 	"github.com/albertoboccolini/sqd/services"
 	"github.com/albertoboccolini/sqd/services/commands"
+	"github.com/albertoboccolini/sqd/services/dry_mode"
 	"github.com/albertoboccolini/sqd/services/files"
 	"github.com/albertoboccolini/sqd/services/sql"
 )
@@ -29,7 +30,7 @@ func splitQueries(data []byte, atEOF bool) (advance int, token []byte, err error
 	return 0, nil, nil
 }
 
-func executeQuery(query string, useTransaction, dryRun bool) {
+func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) {
 	validator := sql.NewValidator()
 	if err := validator.Validate(query); err != nil {
 		fmt.Printf("Error: %s\n", err)
@@ -52,7 +53,10 @@ func executeQuery(query string, useTransaction, dryRun bool) {
 		return
 	}
 
-	dryRunner := commands.NewDryRunner(utils)
+	dryModeFileReader := dry_mode.NewFileReader(utils)
+	dryModeChangeProcessor := dry_mode.NewChangeProcessor(dryModeFileReader, utils)
+	dryModeRunner := dry_mode.NewRunner(dryModeChangeProcessor, utils)
+
 	transactioner := commands.NewTransactioner(utils)
 	sorter := commands.NewSorter()
 	searcher := commands.NewSearcher(parallelizer, sorter, utils)
@@ -65,15 +69,15 @@ func executeQuery(query string, useTransaction, dryRun bool) {
 		updater,
 		deleter,
 		transactioner,
-		dryRunner,
+		dryModeRunner,
 		utils,
 		parallelizer,
 	)
 
-	dispatcher.Execute(command, foundFiles, useTransaction, dryRun)
+	dispatcher.Execute(command, foundFiles, useTransaction, dryRun, showDetailedOutputInDryMode)
 }
 
-func executeQueriesFromFile(filePath string, useTransaction, dryRun bool) {
+func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("Error: Unable to open file %s: %v\n", filePath, err)
@@ -92,7 +96,7 @@ func executeQueriesFromFile(filePath string, useTransaction, dryRun bool) {
 		}
 
 		fmt.Printf("%s\n", query)
-		executeQuery(query, useTransaction, dryRun)
+		executeQuery(query, useTransaction, dryRun, showDetailedOutputInDryMode)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -101,13 +105,44 @@ func executeQueriesFromFile(filePath string, useTransaction, dryRun bool) {
 	}
 }
 
+func handleDryModeCommand(args []string) {
+	dryFlagSet := flag.NewFlagSet("dry", flag.ExitOnError)
+	completeFlag := dryFlagSet.Bool("complete", false, "Show file names with modified lines")
+	dryFlagSet.BoolVar(completeFlag, "c", false, "Show file names with modified lines")
+	transactionFlag := dryFlagSet.Bool("transaction", false, "Enable transaction mode with rollback on failure")
+	dryFlagSet.BoolVar(transactionFlag, "t", false, "Enable transaction mode with rollback on failure")
+	queryFile := dryFlagSet.String("file", "", "Path to a file containing queries to execute")
+	dryFlagSet.StringVar(queryFile, "f", "", "Path to a file containing queries to execute")
+	dryFlagSet.Parse(args)
+
+	if *queryFile != "" {
+		executeQueriesFromFile(*queryFile, *transactionFlag, true, *completeFlag)
+		return
+	}
+
+	if len(dryFlagSet.Args()) == 0 {
+		fmt.Println("Usage: sqd dry [flags] 'query'")
+		fmt.Println("\nFlags:")
+		fmt.Println("  -c, --complete    Show file names with modified lines")
+		fmt.Println("  -t, --transaction Enable transaction mode with rollback on failure")
+		fmt.Println("  -f, --file        Path to a file containing queries to execute")
+		os.Exit(1)
+	}
+
+	query := strings.Join(dryFlagSet.Args(), " ")
+	executeQuery(query, *transactionFlag, true, *completeFlag)
+}
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "dry" {
+		handleDryModeCommand(os.Args[2:])
+		return
+	}
+
 	versionFlag := flag.Bool("version", false, "Print version information")
 	flag.BoolVar(versionFlag, "v", false, "Print version information")
 	transactionFlag := flag.Bool("transaction", false, "Enable transaction mode with rollback on failure")
 	flag.BoolVar(transactionFlag, "t", false, "Enable transaction mode with rollback on failure")
-	dryRunFlag := flag.Bool("dry-run", false, "Show what would be done without making changes")
-	flag.BoolVar(dryRunFlag, "d", false, "Show what would be done without making changes")
 	queryFile := flag.String("file", "", "Path to a file containing queries to execute")
 	flag.StringVar(queryFile, "f", "", "Path to a file containing queries to execute")
 	flag.Parse()
@@ -118,13 +153,14 @@ func main() {
 	}
 
 	if *queryFile != "" {
-		executeQueriesFromFile(*queryFile, *transactionFlag, *dryRunFlag)
+		executeQueriesFromFile(*queryFile, *transactionFlag, false, false)
 		return
 	}
 
 	if len(flag.Args()) == 0 {
 		fmt.Println("sqd | A SQL-like document editor")
 		fmt.Println("\nUsage: sqd [flags] 'query'")
+		fmt.Println("       sqd dry [flags] 'query'")
 		fmt.Println("\nStatements:")
 		fmt.Println("  SELECT	Display matching lines")
 		fmt.Println("  UPDATE	Replace content in matching lines")
@@ -141,17 +177,20 @@ func main() {
 		fmt.Println("  LIKE		Pattern match with wildcards (%)")
 		fmt.Println("\nExamples:")
 		fmt.Println("  sqd 'SELECT * | name | content FROM file.txt WHERE content LIKE pattern ORDER BY name | content ASC | DESC'")
-		fmt.Println("  sqd -d 'UPDATE file.txt SET old TO new WHERE content = match, SET foo TO bar WHERE content = other'")
+		fmt.Println("  sqd dry 'UPDATE file.txt SET old TO new WHERE content = match, SET foo TO bar WHERE content = other'")
+		fmt.Println("  sqd dry -c 'UPDATE file.txt SET old TO new WHERE content = match'")
 		fmt.Println("  sqd -t 'DELETE FROM file.txt WHERE content = exact_match'")
 		fmt.Println("  sqd -f path/to/file")
+		fmt.Println("\nCommands:")
+		fmt.Println("  dry               Show what would be done without making changes")
+		fmt.Println("    -c, --complete  Show file names with modified lines")
 		fmt.Println("\nFlags:")
 		fmt.Println("  -f, --file        Path to a file containing queries to execute")
-		fmt.Println("  -d, --dry-run     Show what would be done without making changes")
 		fmt.Println("  -t, --transaction Enable transaction mode with rollback on failure")
 		fmt.Println("  -v, --version     Show the version information")
 		os.Exit(1)
 	}
 
 	sql := strings.Join(flag.Args(), " ")
-	executeQuery(sql, *transactionFlag, *dryRunFlag)
+	executeQuery(sql, *transactionFlag, false, false)
 }

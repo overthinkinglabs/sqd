@@ -64,6 +64,15 @@ func (utils *Utils) PrintUpdateMessage(count int) {
 	fmt.Printf("%d lines updated\n", count)
 }
 
+func (utils *Utils) PrintDeleteMessage(count int) {
+	if count == 1 {
+		fmt.Println("1 line deleted")
+		return
+	}
+
+	fmt.Printf("%d lines deleted\n", count)
+}
+
 func (utils *Utils) PrintProcessingErrorMessage(file string, err error) {
 	fmt.Fprintf(os.Stderr, "%s: %v\n", file, err)
 }

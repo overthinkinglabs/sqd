@@ -83,8 +83,18 @@ In this example, lines are sorted alphabetically by `content`, and when two line
 ## Flags
 
 - `-f`, `--file`: Runs all queries from a file. Useful for refactoring and repetitive tasks.
-- `-d`, `--dry-run`: Display the actions that would be performed without modifying any files.
 - `-t`, `--transaction`: Apply changes atomically. If any operation fails, all changes are rolled back.
+
+## Dry Mode
+
+The `dry` command shows what changes would be made without modifying any files:
+
+```bash
+sqd dry 'UPDATE *.md SET content="new" WHERE content = "old"'
+# Dry run: pass | fail
+```
+
+Use the `-c` or `--complete` flag to see detailed information for each modified line. Dry mode supports all the same flags as regular commands.
 
 ## The power of sqd
 

@@ -7,13 +7,11 @@ import (
 	"testing"
 
 	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/services"
-	"github.com/albertoboccolini/sqd/services/commands"
+	"github.com/albertoboccolini/sqd/tests/mock"
 )
 
 func TestValidateTransactionModeStopsOnFirstError(t *testing.T) {
-	utils := services.NewUtils()
-	dryRunner := commands.NewDryRunner(utils)
+	dryRunner := mock.NewDryModeRunner()
 
 	pattern := regexp.MustCompile("test")
 	command := models.Command{
@@ -27,7 +25,7 @@ func TestValidateTransactionModeStopsOnFirstError(t *testing.T) {
 	validFile := filepath.Join(cwd, "valid.txt")
 	invalidFile := filepath.Join(cwd, "..", "invalid.txt")
 
-	result := dryRunner.Validate(command, []string{invalidFile, validFile}, stats, true)
+	result := dryRunner.Validate(command, []string{invalidFile, validFile}, stats, true, false)
 
 	if result {
 		t.Error("expected transaction mode to return false on error")
@@ -40,8 +38,7 @@ func TestValidateNonTransactionModeContinuesAfterError(t *testing.T) {
 	os.WriteFile(validFile, []byte("content\n"), 0644)
 	defer os.Remove(validFile)
 
-	utils := services.NewUtils()
-	dryRunner := commands.NewDryRunner(utils)
+	dryRunner := mock.NewDryModeRunner()
 	pattern := regexp.MustCompile("content")
 	command := models.Command{
 		Action:  models.UPDATE,
@@ -52,7 +49,7 @@ func TestValidateNonTransactionModeContinuesAfterError(t *testing.T) {
 	stats := &models.ExecutionStats{}
 	invalidFile := filepath.Join(cwd, "..", "invalid.txt")
 
-	result := dryRunner.Validate(command, []string{invalidFile, validFile}, stats, false)
+	result := dryRunner.Validate(command, []string{invalidFile, validFile}, stats, false, false)
 
 	if !result {
 		t.Error("expected non-transaction mode to return true")
@@ -65,8 +62,7 @@ func TestValidatePermissionDenied(t *testing.T) {
 	os.WriteFile(testFile, []byte("content\n"), 0400)
 	defer os.Remove(testFile)
 
-	utils := services.NewUtils()
-	dryRunner := commands.NewDryRunner(utils)
+	dryRunner := mock.NewDryModeRunner()
 
 	pattern := regexp.MustCompile("content")
 	command := models.Command{
@@ -77,7 +73,7 @@ func TestValidatePermissionDenied(t *testing.T) {
 
 	stats := &models.ExecutionStats{}
 
-	dryRunner.Validate(command, []string{testFile}, stats, false)
+	dryRunner.Validate(command, []string{testFile}, stats, false, false)
 
 	if stats.Skipped != 1 {
 		t.Errorf("expected 1 skipped for permission denied, got %d", stats.Skipped)
