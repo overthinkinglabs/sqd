@@ -44,7 +44,7 @@ func NewDispatcher(
 	}
 }
 
-func (dispatcher *Dispatcher) Execute(command models.Command, files []string, useTransaction bool, dryRun bool, showFileNames bool) {
+func (dispatcher *Dispatcher) Execute(command models.Command, files []string, useTransaction bool, dryRun bool, showDetailedOutputInDryMode bool) {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
 	if (command.Action == models.UPDATE || command.Action == models.DELETE) &&
@@ -83,7 +83,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 
 	if command.Action == models.UPDATE {
 		if dryRun {
-			isValid := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showFileNames)
+			isValid := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
 			status := "fail"
 			if isValid {
 				status = "pass"
@@ -137,7 +137,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 
 	if command.Action == models.DELETE {
 		if dryRun {
-			isValid := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showFileNames)
+			isValid := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
 			status := "fail"
 			if isValid {
 				status = "pass"
@@ -159,7 +159,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			}
 
 			total := dispatcher.transactioner.Delete(files, deleteFunc, &stats)
-			fmt.Printf("Deleted: %d lines\n", total)
+			dispatcher.utils.PrintDeleteMessage(total)
 			dispatcher.utils.PrintStats(stats)
 			return
 		}
@@ -185,7 +185,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			stats.Processed++
 		}
 
-		fmt.Printf("Deleted: %d lines\n", total)
+		dispatcher.utils.PrintDeleteMessage(total)
 		dispatcher.utils.PrintStats(stats)
 	}
 }

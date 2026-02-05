@@ -1,40 +1,41 @@
 package dry_mode
 
 import (
-	"fmt"
-
 	"github.com/albertoboccolini/sqd/models"
 	"github.com/albertoboccolini/sqd/services"
 )
 
 type Runner struct {
-	changeDisplayer *ChangeDisplayer
-	changeCounter   *ChangeCounter
-	fileReader      *FileReader
-	errorHandler    *ErrorHandler
+	changeProcessor *ChangeProcessor
 	utils           *services.Utils
 }
 
-func NewRunner(changeDisplayer *ChangeDisplayer, changeCounter *ChangeCounter, fileReader *FileReader, errorHandler *ErrorHandler, utils *services.Utils) *Runner {
-	return &Runner{changeDisplayer: changeDisplayer, changeCounter: changeCounter, fileReader: fileReader, errorHandler: errorHandler, utils: utils}
+func NewRunner(changeProcessor *ChangeProcessor, utils *services.Utils) *Runner {
+	return &Runner{
+		changeProcessor: changeProcessor,
+		utils:           utils,
+	}
 }
 
-func (runner *Runner) Validate(command models.Command, files []string, stats *models.ExecutionStats, useTransaction bool, showFileNames bool) bool {
-	total := 0
+func (runner *Runner) printSummary(action models.TokenType, totalChanges int) {
+	switch action {
+	case models.UPDATE:
+		runner.utils.PrintUpdateMessage(totalChanges)
+	case models.DELETE:
+		runner.utils.PrintDeleteMessage(totalChanges)
+	}
+}
+
+func (runner *Runner) Validate(command models.Command, files []string, stats *models.ExecutionStats, useTransaction bool, showDetailedOutputInDryMode bool) bool {
+	totalChanges := 0
+
+	if showDetailedOutputInDryMode {
+		runner.changeProcessor = runner.changeProcessor.WithPrinting()
+	}
 
 	for _, file := range files {
-		if showFileNames {
-			if command.Action == models.UPDATE {
-				runner.changeDisplayer.ShowUpdatesForFile(file, command)
-			}
-
-			if command.Action == models.DELETE {
-				runner.changeDisplayer.ShowDeletionsForFile(file, command)
-			}
-		}
-
-		count, ok := runner.changeCounter.validateAndCount(file, command, stats)
-		if !ok {
+		changeCount, isValid := runner.changeProcessor.ProcessCommand(file, command, stats)
+		if !isValid {
 			if useTransaction {
 				return false
 			}
@@ -42,18 +43,11 @@ func (runner *Runner) Validate(command models.Command, files []string, stats *mo
 			continue
 		}
 
-		total += count
+		totalChanges += changeCount
 		stats.Processed++
 	}
 
-	if command.Action == models.UPDATE {
-		runner.utils.PrintUpdateMessage(total)
-	}
-
-	if command.Action == models.DELETE {
-		fmt.Printf("Deleted: %d lines\n", total)
-	}
-
+	runner.printSummary(command.Action, totalChanges)
 	runner.utils.PrintStats(*stats)
 	return true
 }

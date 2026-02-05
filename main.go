@@ -30,7 +30,7 @@ func splitQueries(data []byte, atEOF bool) (advance int, token []byte, err error
 	return 0, nil, nil
 }
 
-func executeQuery(query string, useTransaction, dryRun bool, showFileNames bool) {
+func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) {
 	validator := sql.NewValidator()
 	if err := validator.Validate(query); err != nil {
 		fmt.Printf("Error: %s\n", err)
@@ -53,11 +53,9 @@ func executeQuery(query string, useTransaction, dryRun bool, showFileNames bool)
 		return
 	}
 
-	dryModeErrorHandler := dry_mode.NewErrorHandler()
-	dryModeFileReader := dry_mode.NewFileReader(dryModeErrorHandler, utils)
-	dryModeChangeDisplayer := dry_mode.NewChangeDisplayer(dryModeFileReader)
-	dryModeChangeCounter := dry_mode.NewChangeCounter(dryModeFileReader)
-	dryModeRunner := dry_mode.NewRunner(dryModeChangeDisplayer, dryModeChangeCounter, dryModeFileReader, dryModeErrorHandler, utils)
+	dryModeFileReader := dry_mode.NewFileReader(utils)
+	dryModeChangeProcessor := dry_mode.NewChangeProcessor(dryModeFileReader, utils)
+	dryModeRunner := dry_mode.NewRunner(dryModeChangeProcessor, utils)
 
 	transactioner := commands.NewTransactioner(utils)
 	sorter := commands.NewSorter()
@@ -76,10 +74,10 @@ func executeQuery(query string, useTransaction, dryRun bool, showFileNames bool)
 		parallelizer,
 	)
 
-	dispatcher.Execute(command, foundFiles, useTransaction, dryRun, showFileNames)
+	dispatcher.Execute(command, foundFiles, useTransaction, dryRun, showDetailedOutputInDryMode)
 }
 
-func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showFileNames bool) {
+func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("Error: Unable to open file %s: %v\n", filePath, err)
@@ -98,7 +96,7 @@ func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showFi
 		}
 
 		fmt.Printf("%s\n", query)
-		executeQuery(query, useTransaction, dryRun, showFileNames)
+		executeQuery(query, useTransaction, dryRun, showDetailedOutputInDryMode)
 	}
 
 	if err := scanner.Err(); err != nil {
