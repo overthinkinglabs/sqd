@@ -105,7 +105,7 @@ func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showDe
 	}
 }
 
-func handleDryCommand(args []string) {
+func handleDryModeCommand(args []string) {
 	dryFlagSet := flag.NewFlagSet("dry", flag.ExitOnError)
 	completeFlag := dryFlagSet.Bool("complete", false, "Show file names with modified lines")
 	dryFlagSet.BoolVar(completeFlag, "c", false, "Show file names with modified lines")
@@ -135,7 +135,7 @@ func handleDryCommand(args []string) {
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "dry" {
-		handleDryCommand(os.Args[2:])
+		handleDryModeCommand(os.Args[2:])
 		return
 	}
 
