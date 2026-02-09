@@ -5,20 +5,23 @@ import (
 	"strings"
 
 	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/models/ast"
 )
 
 type Parser struct {
-	extractor    *Extractor
-	batchParser  *BatchParser
-	lexer        *Lexer
-	currentToken models.Token
-	peekToken    models.Token
+	extractor      *Extractor
+	batchParser    *BatchParser
+	commandBuilder *CommandBuilder
+	lexer          *Lexer
+	currentToken   models.Token
+	peekToken      models.Token
 }
 
-func NewParser(extractor *Extractor, batchParser *BatchParser) *Parser {
+func NewParser(extractor *Extractor, batchParser *BatchParser, commandBuilder *CommandBuilder) *Parser {
 	return &Parser{
-		extractor:   extractor,
-		batchParser: batchParser,
+		extractor:      extractor,
+		batchParser:    batchParser,
+		commandBuilder: commandBuilder,
 	}
 }
 
@@ -39,43 +42,6 @@ func (parser *Parser) currentTokenIs(tokenType models.TokenType) bool {
 
 func (parser *Parser) peekTokenIs(tokenType models.TokenType) bool {
 	return parser.peekToken.Type == tokenType
-}
-
-func (parser *Parser) parseSelectTarget(sql string) models.TokenType {
-	lexer := NewLexer(sql)
-
-	for {
-		token := lexer.NextToken()
-
-		if token.Type == models.SELECT {
-			token = lexer.NextToken()
-
-			if token.Type == models.COUNT {
-				token = lexer.NextToken()
-				if token.Type == models.LPAREN {
-					token = lexer.NextToken()
-				}
-			}
-
-			if token.Type == models.NAME {
-				return models.NAME
-			}
-
-			if token.Type == models.CONTENT {
-				return models.CONTENT
-			}
-
-			if token.Type == models.ASTERISK {
-				return models.ASTERISK
-			}
-		}
-
-		if token.Type == models.EOF {
-			break
-		}
-	}
-
-	return models.ASTERISK
 }
 
 func (parser *Parser) parseComparison(pattern **regexp.Regexp, negate *bool) {
@@ -105,22 +71,25 @@ func (parser *Parser) parseComparison(pattern **regexp.Regexp, negate *bool) {
 	}
 }
 
-func (parser *Parser) parseWhereClause(command *models.Command) {
+func (parser *Parser) parseWhereClause() *ast.Where {
 	if !parser.currentTokenIs(models.WHERE) {
-		return
+		return nil
 	}
 
 	parser.nextToken()
+	whereClause := &ast.Where{Target: models.CONTENT}
 
 	if parser.currentTokenIs(models.NAME) {
-		command.WhereTarget = models.NAME
-		parser.parseComparison(&command.WherePattern, &command.NegateFileName)
-		return
+		whereClause.Target = models.NAME
+		parser.parseComparison(&whereClause.Pattern, &whereClause.Negate)
+		return whereClause
 	}
 
 	if parser.currentTokenIs(models.CONTENT) {
-		parser.parseComparison(&command.Pattern, &command.NegateContent)
+		parser.parseComparison(&whereClause.Pattern, &whereClause.Negate)
 	}
+
+	return whereClause
 }
 
 func (parser *Parser) parseOrderItem() models.OrderBy {
@@ -149,15 +118,15 @@ func (parser *Parser) parseOrderItem() models.OrderBy {
 	return item
 }
 
-func (parser *Parser) parseOrderBy(command *models.Command) {
+func (parser *Parser) parseOrderBy() []models.OrderBy {
 	if !parser.currentTokenIs(models.ORDER) || !parser.peekTokenIs(models.BY) {
-		return
+		return nil
 	}
 
 	parser.nextToken()
 	parser.nextToken()
 
-	command.OrderBy = make([]models.OrderBy, 0)
+	orderBy := make([]models.OrderBy, 0)
 
 	for {
 		orderItem := parser.parseOrderItem()
@@ -165,97 +134,170 @@ func (parser *Parser) parseOrderBy(command *models.Command) {
 			break
 		}
 
-		command.OrderBy = append(command.OrderBy, orderItem)
+		orderBy = append(orderBy, orderItem)
 
 		if !parser.currentTokenIs(models.COMMA) {
 			break
 		}
 		parser.nextToken()
 	}
+
+	return orderBy
 }
 
-func (parser *Parser) Parse(sql string) models.Command {
-	parser.initLexer(sql)
+func (parser *Parser) parseSelectStatement() ast.Node {
+	statement := &ast.Select{Target: models.ASTERISK}
 
-	var command models.Command
-	command.SelectTarget = models.ASTERISK
-	command.WhereTarget = models.CONTENT
+	if parser.peekTokenIs(models.COUNT) {
+		statement.IsCount = true
+		parser.nextToken()
 
-	upperSql := strings.ToUpper(sql)
-
-	if parser.currentTokenIs(models.SELECT) {
-		if parser.peekTokenIs(models.COUNT) {
-			command.Action = models.COUNT
+		if parser.peekTokenIs(models.LPAREN) {
 			parser.nextToken()
 		}
-
-		if command.Action != models.COUNT {
-			command.Action = models.SELECT
-		}
-		command.SelectTarget = parser.parseSelectTarget(sql)
 	}
 
-	if parser.currentTokenIs(models.UPDATE) {
-		command.Action = models.UPDATE
+	if parser.peekTokenIs(models.NAME) {
+		statement.Target = models.NAME
 		parser.nextToken()
-		if parser.currentTokenIs(models.IDENTIFIER) {
-			command.File = parser.currentToken.Literal
-		}
 	}
 
-	if parser.currentTokenIs(models.DELETE) {
-		command.Action = models.DELETE
+	if parser.peekTokenIs(models.CONTENT) {
+		statement.Target = models.CONTENT
+		parser.nextToken()
 	}
 
-	if command.Action == models.UPDATE {
-		setCount := strings.Count(upperSql, "SET")
-		if setCount > 1 {
-			command.IsBatch = true
-			command.File = parser.extractor.extractFilename(sql, "UPDATE", "SET")
-			command.Replacements = parser.batchParser.parseBatchReplacements(sql)
-			return command
-		}
-	}
-
-	if command.Action == models.DELETE {
-		whereIdx := strings.Index(upperSql, "WHERE")
-		if whereIdx != -1 {
-			whereClause := sql[whereIdx+5:]
-			commaCount := strings.Count(whereClause, ",")
-
-			if commaCount > 0 {
-				command.IsBatch = true
-				command.File = parser.extractor.extractFilename(sql, "DELETE FROM", "WHERE")
-				command.Deletions = parser.batchParser.parseDeletions(sql)
-				return command
-			}
-		}
+	if parser.peekTokenIs(models.ASTERISK) {
+		parser.nextToken()
 	}
 
 	for !parser.currentTokenIs(models.EOF) {
 		if parser.currentTokenIs(models.FROM) {
 			parser.nextToken()
-			command.File = parser.currentToken.Literal
+			statement.Source = parser.currentToken.Literal
 		}
 
-		parser.parseWhereClause(&command)
+		if whereClause := parser.parseWhereClause(); whereClause != nil {
+			statement.WhereClause = whereClause
+		}
 
-		if parser.currentTokenIs(models.SET) && command.Action == models.UPDATE {
+		if orderBy := parser.parseOrderBy(); orderBy != nil {
+			statement.OrderBy = orderBy
+		}
+
+		parser.nextToken()
+	}
+
+	statement.Source = strings.TrimSpace(statement.Source)
+	return statement
+}
+
+func (parser *Parser) parseUpdateStatement(sql string) ast.Node {
+	statement := &ast.UpdateStatement{}
+
+	parser.nextToken()
+	if parser.currentTokenIs(models.IDENTIFIER) {
+		statement.Source = parser.currentToken.Literal
+	}
+
+	upperSql := strings.ToUpper(sql)
+	setCount := strings.Count(upperSql, "SET")
+
+	if setCount > 1 {
+		statement.IsBatch = true
+		statement.Source = parser.extractor.extractFilename(sql, "UPDATE", "SET")
+		statement.Replacements = parser.batchParser.parseBatchReplacements(sql)
+		return statement
+	}
+
+	for !parser.currentTokenIs(models.EOF) {
+		if whereClause := parser.parseWhereClause(); whereClause != nil {
+			statement.WhereClause = whereClause
+		}
+
+		if parser.currentTokenIs(models.SET) {
 			parser.nextToken()
 
 			if parser.currentTokenIs(models.CONTENT) {
 				parser.nextToken()
 				if parser.currentTokenIs(models.EQUALS) {
 					parser.nextToken()
-					command.Replace = parser.currentToken.Literal
+					replacement := models.Replacement{Replace: parser.currentToken.Literal}
+					if statement.WhereClause != nil {
+						replacement.Pattern = statement.WhereClause.Pattern
+						replacement.Negate = statement.WhereClause.Negate
+					}
+					statement.Replacements = []models.Replacement{replacement}
 				}
 			}
 		}
 
-		parser.parseOrderBy(&command)
 		parser.nextToken()
 	}
 
-	command.File = strings.TrimSpace(command.File)
+	statement.Source = strings.TrimSpace(statement.Source)
+	return statement
+}
+
+func (parser *Parser) parseDeleteStatement(sql string) ast.Node {
+	statement := &ast.Delete{}
+
+	upperSql := strings.ToUpper(sql)
+	whereIdx := strings.Index(upperSql, "WHERE")
+
+	if whereIdx != -1 {
+		whereClause := sql[whereIdx+5:]
+		commaCount := strings.Count(whereClause, ",")
+
+		if commaCount > 0 {
+			statement.IsBatch = true
+			statement.Source = parser.extractor.extractFilename(sql, "DELETE FROM", "WHERE")
+			statement.Deletions = parser.batchParser.parseDeletions(sql)
+			return statement
+		}
+	}
+
+	for !parser.currentTokenIs(models.EOF) {
+		if parser.currentTokenIs(models.FROM) {
+			parser.nextToken()
+			statement.Source = parser.currentToken.Literal
+		}
+
+		if whereClause := parser.parseWhereClause(); whereClause != nil {
+			statement.WhereClause = whereClause
+		}
+
+		parser.nextToken()
+	}
+
+	statement.Source = strings.TrimSpace(statement.Source)
+	return statement
+}
+
+func (parser *Parser) Parse(sql string) models.Command {
+	parser.initLexer(sql)
+
+	var node ast.Node
+
+	if parser.currentTokenIs(models.SELECT) {
+		node = parser.parseSelectStatement()
+	}
+
+	if parser.currentTokenIs(models.UPDATE) {
+		node = parser.parseUpdateStatement(sql)
+	}
+
+	if parser.currentTokenIs(models.DELETE) {
+		node = parser.parseDeleteStatement(sql)
+	}
+
+	if node == nil {
+		return models.Command{
+			SelectTarget: models.ASTERISK,
+			WhereTarget:  models.CONTENT,
+		}
+	}
+
+	command, _ := node.Accept(parser.commandBuilder)
 	return command
 }

@@ -7,5 +7,6 @@ import (
 func NewParser() *sql.Parser {
 	extractor := sql.NewExtractor()
 	batchParser := sql.NewBatchParser(extractor)
-	return sql.NewParser(extractor, batchParser)
+	commandBuilder := sql.NewCommandBuilder()
+	return sql.NewParser(extractor, batchParser, commandBuilder)
 }
