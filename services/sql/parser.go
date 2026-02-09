@@ -298,6 +298,7 @@ func (parser *Parser) Parse(sql string) models.Command {
 		}
 	}
 
+	// TODO: Handle errors properly
 	command, _ := node.Accept(parser.commandBuilder)
 	return command
 }

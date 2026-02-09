@@ -51,11 +51,20 @@ func (commandBuilder *CommandBuilder) VisitUpdate(statement *ast.UpdateStatement
 	}
 
 	if statement.WhereClause != nil && !statement.IsBatch {
-		command.Pattern = statement.WhereClause.Pattern
-		command.NegateContent = statement.WhereClause.Negate
+		command.WhereTarget = statement.WhereClause.Target
 
-		if len(statement.Replacements) > 0 {
-			command.Replace = statement.Replacements[0].Replace
+		if statement.WhereClause.Target == models.CONTENT {
+			command.Pattern = statement.WhereClause.Pattern
+			command.NegateContent = statement.WhereClause.Negate
+
+			if len(statement.Replacements) > 0 {
+				command.Replace = statement.Replacements[0].Replace
+			}
+		}
+
+		if statement.WhereClause.Target == models.NAME {
+			command.WherePattern = statement.WhereClause.Pattern
+			command.NegateFileName = statement.WhereClause.Negate
 		}
 	}
 
@@ -72,8 +81,17 @@ func (commandBuilder *CommandBuilder) VisitDelete(statement *ast.Delete) (models
 	}
 
 	if statement.WhereClause != nil && !statement.IsBatch {
-		command.Pattern = statement.WhereClause.Pattern
-		command.NegateContent = statement.WhereClause.Negate
+		command.WhereTarget = statement.WhereClause.Target
+
+		if statement.WhereClause.Target == models.CONTENT {
+			command.Pattern = statement.WhereClause.Pattern
+			command.NegateContent = statement.WhereClause.Negate
+		}
+
+		if statement.WhereClause.Target == models.NAME {
+			command.WherePattern = statement.WhereClause.Pattern
+			command.NegateFileName = statement.WhereClause.Negate
+		}
 	}
 
 	return command, nil

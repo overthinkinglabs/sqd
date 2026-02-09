@@ -112,7 +112,7 @@ func (lexer *Lexer) NextToken() models.Token {
 		token.Literal = ""
 		return token
 	case '*':
-		if lexer.isLetter(lexer.peekChar()) || lexer.peekChar() == '.' {
+		if lexer.isLetter(lexer.peekChar()) || lexer.peekChar() == '.' || lexer.peekChar() == '/' {
 			token.Literal = lexer.readIdentifier()
 			token.Type = models.IDENTIFIER
 			return token
