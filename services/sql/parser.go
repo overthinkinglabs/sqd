@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -274,7 +275,7 @@ func (parser *Parser) parseDeleteStatement(sql string) ast.Node {
 	return statement
 }
 
-func (parser *Parser) Parse(sql string) models.Command {
+func (parser *Parser) Parse(sql string) (models.Command, error) {
 	parser.initLexer(sql)
 
 	var node ast.Node
@@ -292,13 +293,13 @@ func (parser *Parser) Parse(sql string) models.Command {
 	}
 
 	if node == nil {
-		return models.Command{
-			SelectTarget: models.ASTERISK,
-			WhereTarget:  models.CONTENT,
-		}
+		return models.Command{}, fmt.Errorf("failed to parse query: unrecognized statement")
 	}
 
-	// TODO: Handle errors properly
-	command, _ := node.Accept(parser.commandBuilder)
-	return command
+	command, err := node.Accept(parser.commandBuilder)
+	if err != nil {
+		return models.Command{}, fmt.Errorf("failed to build command: %w", err)
+	}
+
+	return command, nil
 }

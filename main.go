@@ -9,6 +9,7 @@ import (
 	"bufio"
 
 	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/models/displayable_errors"
 	"github.com/albertoboccolini/sqd/services"
 	"github.com/albertoboccolini/sqd/services/commands"
 	"github.com/albertoboccolini/sqd/services/dry_mode"
@@ -30,28 +31,38 @@ func splitQueries(data []byte, atEOF bool) (advance int, token []byte, err error
 	return 0, nil, nil
 }
 
-func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) {
+func handleError(errorHandler *services.ErrorHandler, err error) {
+	errorHandler.HandleError(err)
+	os.Exit(1)
+}
+
+func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) error {
 	validator := sql.NewValidator()
 	if err := validator.Validate(query); err != nil {
-		fmt.Printf("Error: %s\n", err)
-		return
+		return err
 	}
 
 	extractor := sql.NewExtractor()
 	batchParser := sql.NewBatchParser(extractor)
 	commandBuilder := sql.NewCommandBuilder()
 	parser := sql.NewParser(extractor, batchParser, commandBuilder)
-	command := parser.Parse(query)
+	command, err := parser.Parse(query)
+	if err != nil {
+		return err
+	}
 
 	utils := services.NewUtils()
 	finder := files.NewFinder()
 	processor := files.NewProcessor(utils)
 	parallelizer := files.NewParallelizer(utils)
 
-	foundFiles := finder.FindFiles(command.File)
+	foundFiles, err := finder.FindFiles(command.File)
+	if err != nil {
+		return err
+	}
+
 	if len(foundFiles) == 0 {
-		fmt.Println("No files found")
-		return
+		return displayable_errors.NewNoFilesFoundError(command.File)
 	}
 
 	dryModeFileReader := dry_mode.NewFileReader(utils)
@@ -75,14 +86,13 @@ func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputI
 		parallelizer,
 	)
 
-	dispatcher.Execute(command, foundFiles, useTransaction, dryRun, showDetailedOutputInDryMode)
+	return dispatcher.Execute(command, foundFiles, useTransaction, dryRun, showDetailedOutputInDryMode)
 }
 
-func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) {
+func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Printf("Error: Unable to open file %s: %v\n", filePath, err)
-		os.Exit(1)
+		return displayable_errors.NewFileReadError(filePath, err)
 	}
 
 	defer file.Close()
@@ -97,16 +107,19 @@ func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showDe
 		}
 
 		fmt.Printf("%s\n", query)
-		executeQuery(query, useTransaction, dryRun, showDetailedOutputInDryMode)
+		if err := executeQuery(query, useTransaction, dryRun, showDetailedOutputInDryMode); err != nil {
+			return err
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Printf("Error: Failed to read queries from file %s: %v\n", filePath, err)
-		os.Exit(1)
+		return displayable_errors.NewFileReadError(filePath, err)
 	}
+
+	return nil
 }
 
-func handleDryModeCommand(args []string) {
+func handleDryModeCommand(args []string, errorHandler *services.ErrorHandler) {
 	dryFlagSet := flag.NewFlagSet("dry", flag.ExitOnError)
 	completeFlag := dryFlagSet.Bool("complete", false, "Show file names with modified lines")
 	dryFlagSet.BoolVar(completeFlag, "c", false, "Show file names with modified lines")
@@ -117,7 +130,10 @@ func handleDryModeCommand(args []string) {
 	dryFlagSet.Parse(args)
 
 	if *queryFile != "" {
-		executeQueriesFromFile(*queryFile, *transactionFlag, true, *completeFlag)
+		if err := executeQueriesFromFile(*queryFile, *transactionFlag, true, *completeFlag); err != nil {
+			handleError(errorHandler, err)
+		}
+
 		return
 	}
 
@@ -131,12 +147,16 @@ func handleDryModeCommand(args []string) {
 	}
 
 	query := strings.Join(dryFlagSet.Args(), " ")
-	executeQuery(query, *transactionFlag, true, *completeFlag)
+
+	if err := executeQuery(query, *transactionFlag, true, *completeFlag); err != nil {
+		handleError(errorHandler, err)
+	}
 }
 
 func main() {
+	errorHandler := services.NewErrorHandler()
 	if len(os.Args) > 1 && os.Args[1] == "dry" {
-		handleDryModeCommand(os.Args[2:])
+		handleDryModeCommand(os.Args[2:], errorHandler)
 		return
 	}
 
@@ -154,7 +174,10 @@ func main() {
 	}
 
 	if *queryFile != "" {
-		executeQueriesFromFile(*queryFile, *transactionFlag, false, false)
+		if err := executeQueriesFromFile(*queryFile, *transactionFlag, false, false); err != nil {
+			handleError(errorHandler, err)
+		}
+
 		return
 	}
 
@@ -193,5 +216,8 @@ func main() {
 	}
 
 	sql := strings.Join(flag.Args(), " ")
-	executeQuery(sql, *transactionFlag, false, false)
+
+	if err := executeQuery(sql, *transactionFlag, false, false); err != nil {
+		handleError(errorHandler, err)
+	}
 }

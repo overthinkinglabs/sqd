@@ -21,7 +21,9 @@ func TestTransactionPreservesFilePermissions(t *testing.T) {
 	command := parser.Parse("UPDATE test.txt SET content='NEW' WHERE content = 'content'")
 
 	dispatcher := mock.NewDispatcher()
-	dispatcher.Execute(command, []string{file}, true, false, false)
+	if err := dispatcher.Execute(command, []string{file}, true, false, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	newInfo, _ := os.Stat(file)
 	if newInfo.Mode() != originalMode {
@@ -39,7 +41,9 @@ func TestTransactionEmptyFileHandling(t *testing.T) {
 	command := parser.Parse("UPDATE test.txt SET content='NEW' WHERE content = 'nonexistent'")
 
 	dispatcher := mock.NewDispatcher()
-	dispatcher.Execute(command, []string{file}, true, false, false)
+	if err := dispatcher.Execute(command, []string{file}, true, false, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	result, _ := os.ReadFile(file)
 	if string(result) != "" {
@@ -58,7 +62,9 @@ func TestTransactionWithTrailingNewline(t *testing.T) {
 	command := parser.Parse("UPDATE test.txt SET content='UPDATED' WHERE content = 'line2'")
 
 	dispatcher := mock.NewDispatcher()
-	dispatcher.Execute(command, []string{file}, true, false, false)
+	if err := dispatcher.Execute(command, []string{file}, true, false, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	result, _ := os.ReadFile(file)
 	expected := "line1\nUPDATED\nline3\n"
@@ -86,7 +92,9 @@ func TestTransactionMultipleFilesSuccess(t *testing.T) {
 	command := parser.Parse("UPDATE *.txt SET content='CHANGED' WHERE content LIKE 'test'")
 
 	dispatcher := mock.NewDispatcher()
-	dispatcher.Execute(command, []string{file1, file2, file3}, true, false, false)
+	if err := dispatcher.Execute(command, []string{file1, file2, file3}, true, false, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	result1, _ := os.ReadFile(file1)
 	result2, _ := os.ReadFile(file2)

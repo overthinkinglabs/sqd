@@ -1,6 +1,7 @@
 package files
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -56,15 +57,15 @@ func (finder *Finder) IsTextFile(path string) bool {
 	return true
 }
 
-func (finder *Finder) FindFiles(pattern string) []string {
+func (finder *Finder) FindFiles(pattern string) ([]string, error) {
 	if !strings.Contains(pattern, "*") {
-		return []string{pattern}
+		return []string{pattern}, nil
 	}
 
 	matchingPaths := []string{}
-	filepath.WalkDir(".", func(path string, entry fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 
 		if entry.IsDir() {
@@ -78,6 +79,10 @@ func (finder *Finder) FindFiles(pattern string) []string {
 
 		return nil
 	})
+
+	if walkErr != nil {
+		return nil, fmt.Errorf("failed to walk directory: %w", walkErr)
+	}
 
 	var (
 		files     []string
@@ -103,5 +108,5 @@ func (finder *Finder) FindFiles(pattern string) []string {
 	}
 
 	waitGroup.Wait()
-	return files
+	return files, nil
 }

@@ -26,20 +26,18 @@ func (runner *Runner) printSummary(action models.TokenType, totalChanges int) {
 	}
 }
 
-func (runner *Runner) Validate(command models.Command, files []string, stats *models.ExecutionStats, useTransaction bool, showDetailedOutputInDryMode bool) bool {
+func (runner *Runner) Validate(command models.Command, files []string, stats *models.ExecutionStats, useTransaction bool, showDetailedOutputInDryMode bool) error {
 	totalChanges := 0
+	errorCollection := models.NewErrorCollection()
 
 	if showDetailedOutputInDryMode {
 		runner.changeProcessor = runner.changeProcessor.WithPrinting()
 	}
 
 	for _, file := range files {
-		changeCount, isValid := runner.changeProcessor.ProcessCommand(file, command, stats)
-		if !isValid {
-			if useTransaction {
-				return false
-			}
-
+		changeCount, err := runner.changeProcessor.ProcessCommand(file, command, stats)
+		if err != nil {
+			errorCollection.Add(err)
 			continue
 		}
 
@@ -49,5 +47,10 @@ func (runner *Runner) Validate(command models.Command, files []string, stats *mo
 
 	runner.printSummary(command.Action, totalChanges)
 	runner.utils.PrintStats(*stats)
-	return true
+
+	if errorCollection.HasErrors() {
+		return errorCollection
+	}
+
+	return nil
 }

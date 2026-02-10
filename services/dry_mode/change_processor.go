@@ -172,18 +172,19 @@ func (changeProcessor *ChangeProcessor) WithPrinting() *ChangeProcessor {
 	return changeProcessor
 }
 
-func (changeProcessor *ChangeProcessor) ProcessCommand(file string, command models.Command, stats *models.ExecutionStats) (int, bool) {
-	lines, isValid := changeProcessor.fileReader.ValidateAndReadFile(file, stats)
-	if !isValid {
-		return 0, false
+func (changeProcessor *ChangeProcessor) ProcessCommand(file string, command models.Command, stats *models.ExecutionStats) (int, error) {
+	lines, err := changeProcessor.fileReader.ValidateAndReadFile(file)
+	if err != nil {
+		stats.Skipped++
+		return 0, err
 	}
 
 	switch command.Action {
 	case models.UPDATE:
-		return changeProcessor.processUpdates(lines, file, command), true
+		return changeProcessor.processUpdates(lines, file, command), nil
 	case models.DELETE:
-		return changeProcessor.processDeletions(lines, file, command), true
+		return changeProcessor.processDeletions(lines, file, command), nil
 	default:
-		return 0, false
+		return 0, fmt.Errorf("unhandled command action: %v", command.Action)
 	}
 }

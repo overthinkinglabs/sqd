@@ -41,7 +41,6 @@ func (parallelizer *Parallelizer) ProcessFilesInParallel(
 
 			mutex.Lock()
 			if err != nil {
-				parallelizer.utils.PrintProcessingErrorMessage(file, err)
 				stats.Skipped++
 			} else {
 				totalCount += count
@@ -79,7 +78,6 @@ func (parallelizer *Parallelizer) ProcessFilesInParallelNoCount(
 
 			mutex.Lock()
 			if err != nil {
-				parallelizer.utils.PrintProcessingErrorMessage(file, err)
 				stats.Skipped++
 			} else {
 				stats.Processed++
@@ -115,7 +113,6 @@ func (parallelizer *Parallelizer) ProcessFilesInParallelWithIndex(
 
 			mutex.Lock()
 			if err != nil {
-				parallelizer.utils.PrintProcessingErrorMessage(file, err)
 				stats.Skipped++
 			} else {
 				stats.Processed++

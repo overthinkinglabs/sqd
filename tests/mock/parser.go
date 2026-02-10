@@ -1,12 +1,27 @@
 package mock
 
 import (
+	"github.com/albertoboccolini/sqd/models"
 	"github.com/albertoboccolini/sqd/services/sql"
 )
 
-func NewParser() *sql.Parser {
+type MockParser struct {
+	parser *sql.Parser
+}
+
+func NewParser() *MockParser {
 	extractor := sql.NewExtractor()
 	batchParser := sql.NewBatchParser(extractor)
 	commandBuilder := sql.NewCommandBuilder()
-	return sql.NewParser(extractor, batchParser, commandBuilder)
+	return &MockParser{
+		parser: sql.NewParser(extractor, batchParser, commandBuilder),
+	}
+}
+
+func (mockParser *MockParser) Parse(query string) models.Command {
+	command, err := mockParser.parser.Parse(query)
+	if err != nil {
+		panic(err)
+	}
+	return command
 }
