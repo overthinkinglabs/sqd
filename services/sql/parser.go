@@ -293,7 +293,7 @@ func (parser *Parser) Parse(sql string) (models.Command, error) {
 	}
 
 	if node == nil {
-		return models.Command{}, fmt.Errorf("failed to parse query: unrecognized statement")
+		return models.Command{}, fmt.Errorf("unrecognized statement: %s", sql)
 	}
 
 	command, err := node.Accept(parser.commandBuilder)

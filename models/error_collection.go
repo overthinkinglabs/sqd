@@ -1,5 +1,8 @@
 package models
 
+// Since a query can process multiple files, it may produce multiple errors.
+// ErrorCollection ensures that all files are processed and all errors are reported,
+// instead of stopping at the first error and skipping subsequent files.
 type ErrorCollection struct {
 	errors []error
 }
@@ -21,7 +24,7 @@ func (errorCollection *ErrorCollection) HasErrors() bool {
 }
 
 func (errorCollection *ErrorCollection) Errors() []error {
-	return errorCollection.errors
+	return append([]error{}, errorCollection.errors...)
 }
 
 func (errorCollection *ErrorCollection) Error() string {

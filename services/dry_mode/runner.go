@@ -2,6 +2,7 @@ package dry_mode
 
 import (
 	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/models/displayable_errors"
 	"github.com/albertoboccolini/sqd/services"
 )
 
@@ -37,6 +38,11 @@ func (runner *Runner) Validate(command models.Command, files []string, stats *mo
 	for _, file := range files {
 		changeCount, err := runner.changeProcessor.ProcessCommand(file, command, stats)
 		if err != nil {
+			if useTransaction {
+				errorCollection.Add(displayable_errors.NewTransactionFailedError(err.Error()))
+				return errorCollection
+			}
+
 			errorCollection.Add(err)
 			continue
 		}

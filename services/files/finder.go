@@ -1,7 +1,6 @@
 package files
 
 import (
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -9,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/models/displayable_errors"
 )
 
 type Finder struct {
@@ -23,8 +23,13 @@ func NewFinder() *Finder {
 	}
 }
 
-// If the file cannot be stat'ed or opened, the function returns true so that
-// callers like FindFiles do not silently skip those paths.
+// Returns true for files that cannot be stat or opened, ensuring these paths
+// are included in the results rather than silently skipped. This defers error
+// handling to upper layers (e.g., dry run or transactional services) which can
+// then report these issues to the user.
+//
+// Note: inaccessible files will be treated as text files and may cause
+// errors during subsequent read operations.
 func (finder *Finder) IsTextFile(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -81,7 +86,7 @@ func (finder *Finder) FindFiles(pattern string) ([]string, error) {
 	})
 
 	if walkErr != nil {
-		return nil, fmt.Errorf("failed to walk directory: %w", walkErr)
+		return nil, displayable_errors.NewWalkError(".", walkErr)
 	}
 
 	var (

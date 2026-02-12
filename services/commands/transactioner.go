@@ -27,6 +27,7 @@ func (transactioner *Transactioner) checkFilesBeforeTransaction(files []string) 
 		if !transactioner.utils.IsPathInsideCwd(file) {
 			return displayable_errors.NewTransactionFailedError("invalid path " + file)
 		}
+
 		if !transactioner.utils.CanWriteFile(file) {
 			return displayable_errors.NewTransactionFailedError("cannot write " + file)
 		}

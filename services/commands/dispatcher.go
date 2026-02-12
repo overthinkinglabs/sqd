@@ -84,13 +84,13 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 	if command.Action == models.UPDATE {
 		if dryRun {
 			err := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
-			if err != nil {
+			if err != nil && useTransaction {
 				fmt.Println("Dry run: fail")
 				return err
 			}
 
 			fmt.Println("Dry run: pass")
-			return nil
+			return err
 		}
 
 		if useTransaction {
@@ -149,12 +149,12 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 	if command.Action == models.DELETE {
 		if dryRun {
 			err := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
-			if err != nil {
+			if err != nil && useTransaction {
 				fmt.Println("Dry run: fail")
 				return err
 			}
 			fmt.Println("Dry run: pass")
-			return nil
+			return err
 		}
 
 		if useTransaction {
