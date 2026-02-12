@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -274,7 +275,7 @@ func (parser *Parser) parseDeleteStatement(sql string) ast.Node {
 	return statement
 }
 
-func (parser *Parser) Parse(sql string) models.Command {
+func (parser *Parser) Parse(sql string) (models.Command, error) {
 	parser.initLexer(sql)
 
 	var node ast.Node
@@ -291,14 +292,18 @@ func (parser *Parser) Parse(sql string) models.Command {
 		node = parser.parseDeleteStatement(sql)
 	}
 
+	// The validator should have already rejected unrecognized statements
+	// but we check just in case to avoid nil pointer dereferences later on.
+	// So we return a generic error here instead of a displayable error
+	// since this is an unexpected internal state rather than a user input issue.
 	if node == nil {
-		return models.Command{
-			SelectTarget: models.ASTERISK,
-			WhereTarget:  models.CONTENT,
-		}
+		return models.Command{}, fmt.Errorf("unrecognized statement: %s", sql)
 	}
 
-	// TODO: Handle errors properly
-	command, _ := node.Accept(parser.commandBuilder)
-	return command
+	command, err := node.Accept(parser.commandBuilder)
+	if err != nil {
+		return models.Command{}, fmt.Errorf("failed to build command: %w", err)
+	}
+
+	return command, nil
 }

@@ -1,8 +1,9 @@
 package sql
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/albertoboccolini/sqd/models/displayable_errors"
 )
 
 type Validator struct{}
@@ -14,7 +15,7 @@ func NewValidator() *Validator {
 func (sqlValidator *Validator) Validate(sql string) error {
 	sql = strings.TrimSpace(sql)
 	if sql == "" {
-		return fmt.Errorf("Query cannot be empty")
+		return displayable_errors.NewInvalidQueryError("Query cannot be empty")
 	}
 
 	upperSql := strings.ToUpper(sql)
@@ -29,19 +30,19 @@ func (sqlValidator *Validator) Validate(sql string) error {
 	}
 
 	if !hasValidPrefix {
-		return fmt.Errorf("Query must start with SELECT, UPDATE, or DELETE")
+		return displayable_errors.NewInvalidQueryError("Query must start with SELECT, UPDATE, or DELETE")
 	}
 
 	if strings.HasPrefix(upperSql, "SELECT") && !strings.Contains(upperSql, "FROM") {
-		return fmt.Errorf("SELECT query must contain FROM clause")
+		return displayable_errors.NewInvalidQueryError("SELECT query must contain FROM clause")
 	}
 
 	if strings.HasPrefix(upperSql, "UPDATE") && !strings.Contains(upperSql, "SET") {
-		return fmt.Errorf("UPDATE query must contain SET clause")
+		return displayable_errors.NewInvalidQueryError("UPDATE query must contain SET clause")
 	}
 
 	if strings.HasPrefix(upperSql, "DELETE") && !strings.Contains(upperSql, "FROM") {
-		return fmt.Errorf("DELETE query must contain FROM clause")
+		return displayable_errors.NewInvalidQueryError("DELETE query must contain FROM clause")
 	}
 
 	return nil

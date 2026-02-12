@@ -25,10 +25,10 @@ func TestValidateTransactionModeStopsOnFirstError(t *testing.T) {
 	validFile := filepath.Join(cwd, "valid.txt")
 	invalidFile := filepath.Join(cwd, "..", "invalid.txt")
 
-	result := dryRunner.Validate(command, []string{invalidFile, validFile}, stats, true, false)
+	err := dryRunner.Validate(command, []string{invalidFile, validFile}, stats, true, false)
 
-	if result {
-		t.Error("expected transaction mode to return false on error")
+	if err == nil {
+		t.Error("expected transaction mode to return error on invalid path")
 	}
 }
 
@@ -49,10 +49,18 @@ func TestValidateNonTransactionModeContinuesAfterError(t *testing.T) {
 	stats := &models.ExecutionStats{}
 	invalidFile := filepath.Join(cwd, "..", "invalid.txt")
 
-	result := dryRunner.Validate(command, []string{invalidFile, validFile}, stats, false, false)
+	err := dryRunner.Validate(command, []string{invalidFile, validFile}, stats, false, false)
 
-	if !result {
-		t.Error("expected non-transaction mode to return true")
+	if err == nil {
+		t.Error("expected error collection to be returned with invalid file error")
+	}
+
+	if stats.Processed != 1 {
+		t.Errorf("expected 1 file processed, got %d", stats.Processed)
+	}
+
+	if stats.Skipped != 1 {
+		t.Errorf("expected 1 file skipped, got %d", stats.Skipped)
 	}
 }
 
@@ -73,7 +81,11 @@ func TestValidatePermissionDenied(t *testing.T) {
 
 	stats := &models.ExecutionStats{}
 
-	dryRunner.Validate(command, []string{testFile}, stats, false, false)
+	err := dryRunner.Validate(command, []string{testFile}, stats, false, false)
+
+	if err == nil {
+		t.Error("expected error for permission denied")
+	}
 
 	if stats.Skipped != 1 {
 		t.Errorf("expected 1 skipped for permission denied, got %d", stats.Skipped)

@@ -1,11 +1,11 @@
 package dry_mode
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"strings"
 
-	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/models/displayable_errors"
 	"github.com/albertoboccolini/sqd/services"
 )
 
@@ -17,27 +17,23 @@ func NewFileReader(utils *services.Utils) *FileReader {
 	return &FileReader{utils: utils}
 }
 
-func (fileReader *FileReader) fail(msg string, stats *models.ExecutionStats) {
-	fmt.Fprintf(os.Stderr, "%s\n", msg)
-	stats.Skipped++
-}
-
-func (fileReader *FileReader) ValidateAndReadFile(file string, stats *models.ExecutionStats) ([]string, bool) {
+func (fileReader *FileReader) ValidateAndReadFile(file string) ([]string, error) {
 	if !fileReader.utils.IsPathInsideCwd(file) {
-		fileReader.fail("invalid path: "+file, stats)
-		return nil, false
+		return nil, displayable_errors.NewInvalidPathError(file)
 	}
 
 	if !fileReader.utils.CanWriteFile(file) {
-		fileReader.fail("permission denied: "+file, stats)
-		return nil, false
+		return nil, displayable_errors.NewPermissionDeniedError(file)
 	}
 
 	data, err := os.ReadFile(file)
 	if err != nil {
-		fileReader.fail(err.Error(), stats)
-		return nil, false
+		if errors.Is(err, os.ErrPermission) {
+			return nil, displayable_errors.NewPermissionDeniedError(file)
+		}
+
+		return nil, err
 	}
 
-	return strings.Split(string(data), "\n"), true
+	return strings.Split(string(data), "\n"), nil
 }

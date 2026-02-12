@@ -2,10 +2,10 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/models/displayable_errors"
 	"github.com/albertoboccolini/sqd/services"
 	"github.com/albertoboccolini/sqd/services/dry_mode"
 	"github.com/albertoboccolini/sqd/services/files"
@@ -44,13 +44,15 @@ func NewDispatcher(
 	}
 }
 
-func (dispatcher *Dispatcher) Execute(command models.Command, files []string, useTransaction bool, dryRun bool, showDetailedOutputInDryMode bool) {
+func (dispatcher *Dispatcher) Execute(command models.Command, files []string, useTransaction bool, dryRun bool, showDetailedOutputInDryMode bool) error {
 	stats := models.ExecutionStats{StartTime: time.Now()}
 
 	if (command.Action == models.UPDATE || command.Action == models.DELETE) &&
 		command.WhereTarget == models.NAME {
-		fmt.Fprintf(os.Stderr, "Error: UPDATE and DELETE operations cannot filter by file name. Use WHERE content = ... instead\n")
-		return
+		if command.Action == models.UPDATE {
+			return displayable_errors.NewInvalidUpdateError("UPDATE operations cannot filter by file name. Use WHERE content = ... instead")
+		}
+		return displayable_errors.NewInvalidDeleteError("DELETE operations cannot filter by file name. Use WHERE content = ... instead")
 	}
 
 	if command.Pattern == nil &&
@@ -59,37 +61,36 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			command.Action == models.COUNT ||
 			command.Action == models.UPDATE ||
 			command.Action == models.DELETE) && !command.IsBatch) {
-		fmt.Fprintf(os.Stderr, "Error: Invalid query pattern\n")
-		return
+		return displayable_errors.NewInvalidWhereClauseError("Invalid query pattern")
 	}
 
 	if command.Action == models.UPDATE && !command.IsBatch && command.Replace == "" {
-		fmt.Fprintf(os.Stderr, "Error: Invalid replacement value\n")
-		return
+		return displayable_errors.NewInvalidUpdateError("Invalid replacement value")
 	}
 
 	if command.Action == models.COUNT {
 		total, stats := dispatcher.counter.Count(files, command)
 		fmt.Printf("%d matches\n", total)
 		dispatcher.utils.PrintStats(stats)
-		return
+		return nil
 	}
 
 	if command.Action == models.SELECT {
 		stats := dispatcher.searcher.Select(files, command)
 		dispatcher.utils.PrintStats(stats)
-		return
+		return nil
 	}
 
 	if command.Action == models.UPDATE {
 		if dryRun {
-			isValid := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
-			status := "fail"
-			if isValid {
-				status = "pass"
+			err := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
+			if err != nil && useTransaction {
+				fmt.Println("Dry run: fail")
+				return err
 			}
-			fmt.Printf("Dry run: %s\n", status)
-			return
+
+			fmt.Println("Dry run: pass")
+			return err
 		}
 
 		if useTransaction {
@@ -104,12 +105,16 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 				}
 			}
 
-			total := dispatcher.transactioner.Update(files, updateFunc, &stats)
+			total, err := dispatcher.transactioner.Update(files, updateFunc, &stats)
+			if err != nil {
+				return err
+			}
 			dispatcher.utils.PrintUpdateMessage(total)
 			dispatcher.utils.PrintStats(stats)
-			return
+			return nil
 		}
 
+		errorCollection := models.NewErrorCollection()
 		total := 0
 		for _, file := range files {
 			var count int
@@ -122,7 +127,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			}
 
 			if err != nil {
-				dispatcher.utils.PrintProcessingErrorMessage(file, err)
+				errorCollection.Add(err)
 				stats.Skipped++
 				continue
 			}
@@ -130,20 +135,26 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			stats.Processed++
 		}
 
+		if errorCollection.HasErrors() {
+			dispatcher.utils.PrintUpdateMessage(total)
+			dispatcher.utils.PrintStats(stats)
+			return errorCollection
+		}
+
 		dispatcher.utils.PrintUpdateMessage(total)
 		dispatcher.utils.PrintStats(stats)
-		return
+		return nil
 	}
 
 	if command.Action == models.DELETE {
 		if dryRun {
-			isValid := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
-			status := "fail"
-			if isValid {
-				status = "pass"
+			err := dispatcher.dryModeRunner.Validate(command, files, &stats, useTransaction, showDetailedOutputInDryMode)
+			if err != nil && useTransaction {
+				fmt.Println("Dry run: fail")
+				return err
 			}
-			fmt.Printf("Dry run: %s\n", status)
-			return
+			fmt.Println("Dry run: pass")
+			return err
 		}
 
 		if useTransaction {
@@ -158,12 +169,16 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 				}
 			}
 
-			total := dispatcher.transactioner.Delete(files, deleteFunc, &stats)
+			total, err := dispatcher.transactioner.Delete(files, deleteFunc, &stats)
+			if err != nil {
+				return err
+			}
 			dispatcher.utils.PrintDeleteMessage(total)
 			dispatcher.utils.PrintStats(stats)
-			return
+			return nil
 		}
 
+		errorCollection := models.NewErrorCollection()
 		total := 0
 		for _, file := range files {
 			var count int
@@ -176,7 +191,7 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			}
 
 			if err != nil {
-				dispatcher.utils.PrintProcessingErrorMessage(file, err)
+				errorCollection.Add(err)
 				stats.Skipped++
 				continue
 			}
@@ -185,7 +200,16 @@ func (dispatcher *Dispatcher) Execute(command models.Command, files []string, us
 			stats.Processed++
 		}
 
+		if errorCollection.HasErrors() {
+			dispatcher.utils.PrintDeleteMessage(total)
+			dispatcher.utils.PrintStats(stats)
+			return errorCollection
+		}
+
 		dispatcher.utils.PrintDeleteMessage(total)
 		dispatcher.utils.PrintStats(stats)
+		return nil
 	}
+
+	return fmt.Errorf("unhandled command action: %v", command.Action)
 }

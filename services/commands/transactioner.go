@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/models/displayable_errors"
 	"github.com/albertoboccolini/sqd/services"
 )
 
@@ -21,17 +22,17 @@ type fileBackup struct {
 	backup   string
 }
 
-func (transactioner *Transactioner) checkFilesBeforeTransaction(files []string) {
+func (transactioner *Transactioner) checkFilesBeforeTransaction(files []string) error {
 	for _, file := range files {
 		if !transactioner.utils.IsPathInsideCwd(file) {
-			fmt.Fprintf(os.Stderr, "Transaction failed: invalid path %s\n", file)
-			os.Exit(1)
+			return displayable_errors.NewTransactionFailedError("invalid path " + file)
 		}
+
 		if !transactioner.utils.CanWriteFile(file) {
-			fmt.Fprintf(os.Stderr, "Transaction failed: cannot write %s\n", file)
-			os.Exit(1)
+			return displayable_errors.NewTransactionFailedError("cannot write " + file)
 		}
 	}
+	return nil
 }
 
 func (transactioner *Transactioner) rollbackFiles(backups []fileBackup) {
@@ -43,9 +44,12 @@ func (transactioner *Transactioner) rollbackFiles(backups []fileBackup) {
 }
 
 func (transactioner *Transactioner) Update(files []string,
-	updateFunc func(string) (int, error), stats *models.ExecutionStats) int {
+	updateFunc func(string) (int, error), stats *models.ExecutionStats) (int, error) {
 
-	transactioner.checkFilesBeforeTransaction(files)
+	if err := transactioner.checkFilesBeforeTransaction(files); err != nil {
+		return 0, err
+	}
+
 	backups := make([]fileBackup, 0, len(files))
 	total := 0
 
@@ -53,34 +57,33 @@ func (transactioner *Transactioner) Update(files []string,
 		backupPath := file + ".sqd_backup"
 		if err := os.Rename(file, backupPath); err != nil {
 			transactioner.rollbackFiles(backups)
-			fmt.Fprintf(os.Stderr, "Transaction failed: %v\n", err)
-			return 0
+			return 0, displayable_errors.NewTransactionFailedError(err.Error())
 		}
 		backups = append(backups, fileBackup{original: file, backup: backupPath})
 
 		count, err := updateFunc(backupPath)
 		if err != nil {
 			transactioner.rollbackFiles(backups)
-			fmt.Fprintf(os.Stderr, "Transaction failed: %v\n", err)
-			return 0
+			return 0, displayable_errors.NewTransactionFailedError(err.Error())
 		}
 
 		if err := os.Rename(backupPath, file); err != nil {
 			transactioner.rollbackFiles(backups)
-			fmt.Fprintf(os.Stderr, "Transaction failed: %v\n", err)
-			return 0
+			return 0, displayable_errors.NewTransactionFailedError(err.Error())
 		}
 
 		total += count
 		stats.Processed++
 	}
 
-	return total
+	return total, nil
 }
-
 func (transactioner *Transactioner) Delete(files []string,
-	deleteFunc func(string) (int, error), stats *models.ExecutionStats) int {
-	transactioner.checkFilesBeforeTransaction(files)
+	deleteFunc func(string) (int, error), stats *models.ExecutionStats) (int, error) {
+	if err := transactioner.checkFilesBeforeTransaction(files); err != nil {
+		return 0, err
+	}
+
 	backups := make([]fileBackup, 0, len(files))
 	total := 0
 
@@ -88,27 +91,24 @@ func (transactioner *Transactioner) Delete(files []string,
 		backupPath := file + ".sqd_backup"
 		if err := os.Rename(file, backupPath); err != nil {
 			transactioner.rollbackFiles(backups)
-			fmt.Fprintf(os.Stderr, "Transaction failed: %v\n", err)
-			return 0
+			return 0, displayable_errors.NewTransactionFailedError(err.Error())
 		}
 		backups = append(backups, fileBackup{original: file, backup: backupPath})
 
 		count, err := deleteFunc(backupPath)
 		if err != nil {
 			transactioner.rollbackFiles(backups)
-			fmt.Fprintf(os.Stderr, "Transaction failed: %v\n", err)
-			return 0
+			return 0, displayable_errors.NewTransactionFailedError(err.Error())
 		}
 
 		if err := os.Rename(backupPath, file); err != nil {
 			transactioner.rollbackFiles(backups)
-			fmt.Fprintf(os.Stderr, "Transaction failed: %v\n", err)
-			return 0
+			return 0, displayable_errors.NewTransactionFailedError(err.Error())
 		}
 
 		total += count
 		stats.Processed++
 	}
 
-	return total
+	return total, nil
 }

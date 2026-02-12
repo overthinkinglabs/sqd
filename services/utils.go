@@ -73,10 +73,6 @@ func (utils *Utils) PrintDeleteMessage(count int) {
 	fmt.Printf("%d lines deleted\n", count)
 }
 
-func (utils *Utils) PrintProcessingErrorMessage(file string, err error) {
-	fmt.Fprintf(os.Stderr, "%s: %v\n", file, err)
-}
-
 func (utils *Utils) PrintStats(stats models.ExecutionStats) {
 	elapsed := time.Since(stats.StartTime).Seconds()
 	fmt.Printf("Processed: %d files in %.2fms\n", stats.Processed, elapsed*1000)
