@@ -292,6 +292,10 @@ func (parser *Parser) Parse(sql string) (models.Command, error) {
 		node = parser.parseDeleteStatement(sql)
 	}
 
+	// The validator should have already rejected unrecognized statements
+	// but we check just in case to avoid nil pointer dereferences later on.
+	// So we return a generic error here instead of a displayable error
+	// since this is an unexpected internal state rather than a user input issue.
 	if node == nil {
 		return models.Command{}, fmt.Errorf("unrecognized statement: %s", sql)
 	}
