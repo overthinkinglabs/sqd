@@ -137,3 +137,45 @@ You will obtain the following result
 
 ## Title 2 UPDATED
 ```
+
+## Before pushing
+
+1. **See if you have any rebase to do** (you must have the updated commits history before pushing to avoid conflicts between main and your branch):
+
+    ```sh
+    git fetch
+    git pull origin main --rebase
+    ```
+
+2. **Build the project locally to avoid compiling errors**:
+
+    ```sh
+    goreleaser release --snapshot --clean
+    ```
+
+3. **Run the tests to avoid your code breaks anything**:
+
+    ```sh
+    go test -v -race ./...
+    ```
+
+4. **Lint your code** (if the following command return errors or warnings you must resolve them before pushing):
+
+    ```sh
+    golangci-lint run ./...
+    ```
+
+5. **Format your code**:
+
+    ```sh
+    gofumpt -w ./
+    ```
+
+## Contributing
+
+If you want to contribute to **sqd**, follow these steps:
+
+1. Create a new branch for your changes (`git checkout -b your-branch-name`).
+2. Make your changes and commit them (`git commit -m 'Change something'`).
+3. Push your branch (`git push origin your-branch-name`).
+4. Open a pull request.

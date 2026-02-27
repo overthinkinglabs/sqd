@@ -17,8 +17,8 @@ func TestParallelProcessingWithErrors(t *testing.T) {
 	file2 := filepath.Join(cwd, "parallel_valid2.txt")
 	invalidFile := filepath.Join(cwd, "nonexistent_file.txt")
 
-	os.WriteFile(file1, []byte("content1\ncontent1\n"), 0644)
-	os.WriteFile(file2, []byte("content2\ncontent2\ncontent2\n"), 0644)
+	os.WriteFile(file1, []byte("content1\ncontent1\n"), 0o644)
+	os.WriteFile(file2, []byte("content2\ncontent2\ncontent2\n"), 0o644)
 	defer os.Remove(file1)
 	defer os.Remove(file2)
 
@@ -53,7 +53,7 @@ func TestParallelProcessingConcurrencyLimit(t *testing.T) {
 
 	for i := range numFiles {
 		file := filepath.Join(cwd, "concurrent_test_"+string(rune(i%26+'a'))+string(rune(i/26+'0'))+".txt")
-		os.WriteFile(file, []byte("test line\n"), 0644)
+		os.WriteFile(file, []byte("test line\n"), 0o644)
 		files[i] = file
 		defer os.Remove(file)
 	}
@@ -83,7 +83,7 @@ func TestParallelProcessingMaintainsFileIntegrity(t *testing.T) {
 	for i := range numFiles {
 		file := filepath.Join(cwd, "integrity_test_"+string(rune('a'+i))+".txt")
 		content := strings.Repeat("line "+string(rune('0'+i))+"\n", i+1)
-		os.WriteFile(file, []byte(content), 0644)
+		os.WriteFile(file, []byte(content), 0o644)
 		files[i] = file
 		expectedContent[file] = content
 		defer os.Remove(file)

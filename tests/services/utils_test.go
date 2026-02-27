@@ -11,7 +11,7 @@ import (
 func TestIsPathInsideCwdRelative(t *testing.T) {
 	cwd, _ := os.Getwd()
 	file := filepath.Join(cwd, "test.txt")
-	os.WriteFile(file, []byte("test"), 0644)
+	os.WriteFile(file, []byte("test"), 0o644)
 	defer os.Remove(file)
 
 	utils := services.NewUtils()

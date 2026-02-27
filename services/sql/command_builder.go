@@ -41,7 +41,7 @@ func (commandBuilder *CommandBuilder) VisitSelect(statement *ast.Select) (models
 	return command, nil
 }
 
-func (commandBuilder *CommandBuilder) VisitUpdate(statement *ast.UpdateStatement) (models.Command, error) {
+func (commandBuilder *CommandBuilder) VisitUpdate(statement *ast.Update) (models.Command, error) {
 	command := models.Command{
 		Action:       models.UPDATE,
 		File:         statement.Source,

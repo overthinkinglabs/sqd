@@ -35,7 +35,7 @@ func TestValidateTransactionModeStopsOnFirstError(t *testing.T) {
 func TestValidateNonTransactionModeContinuesAfterError(t *testing.T) {
 	cwd, _ := os.Getwd()
 	validFile := filepath.Join(cwd, "valid.txt")
-	os.WriteFile(validFile, []byte("content\n"), 0644)
+	os.WriteFile(validFile, []byte("content\n"), 0o644)
 	defer os.Remove(validFile)
 
 	dryRunner := mock.NewDryModeRunner()
@@ -67,7 +67,7 @@ func TestValidateNonTransactionModeContinuesAfterError(t *testing.T) {
 func TestValidatePermissionDenied(t *testing.T) {
 	cwd, _ := os.Getwd()
 	testFile := filepath.Join(cwd, "readonly.txt")
-	os.WriteFile(testFile, []byte("content\n"), 0400)
+	os.WriteFile(testFile, []byte("content\n"), 0o400)
 	defer os.Remove(testFile)
 
 	dryRunner := mock.NewDryModeRunner()

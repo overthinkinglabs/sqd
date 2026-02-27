@@ -89,7 +89,7 @@ func (batchParser *BatchParser) parseBatchReplacements(sql string) []models.Repl
 
 			switch token.Type {
 			case models.SET:
-				if setReplacement(&replacement, lexer) == false {
+				if !setReplacement(&replacement, lexer) {
 					continue
 				}
 			case models.WHERE:

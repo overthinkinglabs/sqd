@@ -1,0 +1,19 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: false
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - bodyclose
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
