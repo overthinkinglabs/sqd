@@ -168,7 +168,7 @@ You will obtain the following result
 5. **Format your code**:
 
     ```sh
-    gofumpt -w ./...
+    gofumpt -w ./
     ```
 
 ## Contributing
@@ -176,6 +176,6 @@ You will obtain the following result
 If you want to contribute to **sqd**, follow these steps:
 
 1. Create a new branch for your changes (`git checkout -b your-branch-name`).
-2. Make your changes and commit them (`git commit -m 'Changed something'`).
+2. Make your changes and commit them (`git commit -m 'Change something'`).
 3. Push your branch (`git push origin your-branch-name`).
 4. Open a pull request.

@@ -11,7 +11,7 @@ import (
 func TestTransactionPreservesFilePermissions(t *testing.T) {
 	cwd, _ := os.Getwd()
 	file := filepath.Join(cwd, "test.txt")
-	os.WriteFile(file, []byte("content"), 0600)
+	os.WriteFile(file, []byte("content"), 0o600)
 	defer os.Remove(file)
 
 	originalInfo, _ := os.Stat(file)
@@ -34,7 +34,7 @@ func TestTransactionPreservesFilePermissions(t *testing.T) {
 func TestTransactionEmptyFileHandling(t *testing.T) {
 	cwd, _ := os.Getwd()
 	file := filepath.Join(cwd, "test.txt")
-	os.WriteFile(file, []byte(""), 0644)
+	os.WriteFile(file, []byte(""), 0o644)
 	defer os.Remove(file)
 
 	parser := mock.NewParser()
@@ -55,7 +55,7 @@ func TestTransactionWithTrailingNewline(t *testing.T) {
 	cwd, _ := os.Getwd()
 	file := filepath.Join(cwd, "test.txt")
 	content := "line1\nline2\nline3\n"
-	os.WriteFile(file, []byte(content), 0644)
+	os.WriteFile(file, []byte(content), 0o644)
 	defer os.Remove(file)
 
 	parser := mock.NewParser()
@@ -79,9 +79,9 @@ func TestTransactionMultipleFilesSuccess(t *testing.T) {
 	file2 := filepath.Join(cwd, "multi2.txt")
 	file3 := filepath.Join(cwd, "multi3.txt")
 
-	os.WriteFile(file1, []byte("test"), 0644)
-	os.WriteFile(file2, []byte("test"), 0644)
-	os.WriteFile(file3, []byte("test"), 0644)
+	os.WriteFile(file1, []byte("test"), 0o644)
+	os.WriteFile(file2, []byte("test"), 0o644)
+	os.WriteFile(file3, []byte("test"), 0o644)
 
 	defer os.Remove(file1)
 	defer os.Remove(file2)
