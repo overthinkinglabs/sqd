@@ -44,8 +44,8 @@ func (transactioner *Transactioner) rollbackFiles(backups []fileBackup) {
 }
 
 func (transactioner *Transactioner) Update(files []string,
-	updateFunc func(string) (int, error), stats *models.ExecutionStats) (int, error) {
-
+	updateFunc func(string) (int, error), stats *models.ExecutionStats,
+) (int, error) {
 	if err := transactioner.checkFilesBeforeTransaction(files); err != nil {
 		return 0, err
 	}
@@ -78,8 +78,10 @@ func (transactioner *Transactioner) Update(files []string,
 
 	return total, nil
 }
+
 func (transactioner *Transactioner) Delete(files []string,
-	deleteFunc func(string) (int, error), stats *models.ExecutionStats) (int, error) {
+	deleteFunc func(string) (int, error), stats *models.ExecutionStats,
+) (int, error) {
 	if err := transactioner.checkFilesBeforeTransaction(files); err != nil {
 		return 0, err
 	}

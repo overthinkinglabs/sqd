@@ -6,8 +6,7 @@ import (
 	"github.com/albertoboccolini/sqd/models"
 )
 
-type Sorter struct {
-}
+type Sorter struct{}
 
 func NewSorter() *Sorter {
 	return &Sorter{}

@@ -1,12 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
-
-	"bufio"
 
 	"github.com/albertoboccolini/sqd/models"
 	"github.com/albertoboccolini/sqd/models/displayable_errors"
@@ -95,7 +94,9 @@ func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showDe
 		return displayable_errors.NewFileReadError(filePath, err)
 	}
 
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	scanner := bufio.NewScanner(file)
 	scanner.Split(splitQueries)
@@ -127,7 +128,9 @@ func handleDryModeCommand(args []string, errorHandler *services.ErrorHandler) {
 	dryFlagSet.BoolVar(transactionFlag, "t", false, "Enable transaction mode with rollback on failure")
 	queryFile := dryFlagSet.String("file", "", "Path to a file containing queries to execute")
 	dryFlagSet.StringVar(queryFile, "f", "", "Path to a file containing queries to execute")
-	dryFlagSet.Parse(args)
+	if err := dryFlagSet.Parse(args); err != nil {
+		handleError(errorHandler, err)
+	}
 
 	if *queryFile != "" {
 		if err := executeQueriesFromFile(*queryFile, *transactionFlag, true, *completeFlag); err != nil {

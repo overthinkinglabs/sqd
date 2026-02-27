@@ -51,7 +51,7 @@ func (utils *Utils) CanWriteFile(path string) bool {
 		return false
 	}
 
-	file.Close()
+	defer func() { _ = file.Close() }()
 	return true
 }
 

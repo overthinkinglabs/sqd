@@ -44,7 +44,8 @@ func (finder *Finder) IsTextFile(path string) bool {
 	if err != nil {
 		return true
 	}
-	defer file.Close()
+
+	defer func() { _ = file.Close() }()
 
 	buf := make([]byte, finder.bufferSize)
 	n, _ := file.Read(buf)
@@ -85,6 +86,8 @@ func (finder *Finder) FindFiles(pattern string) ([]string, error) {
 		return nil
 	})
 
+	// TODO: This is wrong, because it will treat any error during the walk as a failure of the entire operation, even if some files were successfully found.
+	// TODO: We should instead collect these errors and report them to the user while still returning any successfully found files.
 	if walkErr != nil {
 		return nil, displayable_errors.NewWalkError(".", walkErr)
 	}

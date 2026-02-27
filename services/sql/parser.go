@@ -194,7 +194,7 @@ func (parser *Parser) parseSelectStatement() ast.Node {
 }
 
 func (parser *Parser) parseUpdateStatement(sql string) ast.Node {
-	statement := &ast.UpdateStatement{}
+	statement := &ast.Update{}
 
 	parser.nextToken()
 	if parser.currentTokenIs(models.IDENTIFIER) {
