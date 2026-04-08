@@ -35,6 +35,21 @@ func handleError(errorHandler *services.ErrorHandler, err error) {
 	os.Exit(1)
 }
 
+func addWalkWarnings(errorCollection *models.ErrorCollection, walkWarnings error) {
+	if walkWarnings == nil {
+		return
+	}
+
+	walkErrorCollection, ok := walkWarnings.(*models.ErrorCollection)
+	if !ok {
+		return
+	}
+
+	for _, walkErr := range walkErrorCollection.Errors() {
+		errorCollection.Add(walkErr)
+	}
+}
+
 func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) error {
 	validator := sql.NewValidator()
 	if err := validator.Validate(query); err != nil {
@@ -55,12 +70,13 @@ func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputI
 	processor := files.NewProcessor(utils)
 	parallelizer := files.NewParallelizer(utils)
 
-	foundFiles, err := finder.FindFiles(command.File)
-	if err != nil {
-		return err
-	}
+	foundFiles, walkWarnings := finder.FindFiles(command.File)
 
 	if len(foundFiles) == 0 {
+		if walkWarnings != nil {
+			return walkWarnings
+		}
+
 		return displayable_errors.NewNoFilesFoundError(command.File)
 	}
 
@@ -85,7 +101,30 @@ func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputI
 		parallelizer,
 	)
 
-	return dispatcher.Execute(command, foundFiles, useTransaction, dryRun, showDetailedOutputInDryMode)
+	dispatchErr := dispatcher.Execute(command, foundFiles, useTransaction, dryRun, showDetailedOutputInDryMode)
+
+	var finalErr error
+	if dispatchErr != nil {
+		errorCollection, isCollection := dispatchErr.(*models.ErrorCollection)
+		if isCollection {
+			addWalkWarnings(errorCollection, walkWarnings)
+			return errorCollection
+		}
+
+		finalErr = dispatchErr
+	}
+
+	if walkWarnings != nil {
+		if finalErr != nil {
+			errorCollection := models.NewErrorCollection()
+			errorCollection.Add(finalErr)
+			addWalkWarnings(errorCollection, walkWarnings)
+			return errorCollection
+		}
+		return walkWarnings
+	}
+
+	return finalErr
 }
 
 func executeQueriesFromFile(filePath string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) error {

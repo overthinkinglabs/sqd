@@ -69,9 +69,12 @@ func (finder *Finder) FindFiles(pattern string) ([]string, error) {
 	}
 
 	matchingPaths := []string{}
+	walkErrors := models.NewErrorCollection()
+
 	walkErr := filepath.WalkDir(".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			walkErrors.Add(displayable_errors.NewWalkError(err))
+			return nil
 		}
 
 		if entry.IsDir() {
@@ -86,10 +89,8 @@ func (finder *Finder) FindFiles(pattern string) ([]string, error) {
 		return nil
 	})
 
-	// TODO: This is wrong, because it will treat any error during the walk as a failure of the entire operation, even if some files were successfully found.
-	// TODO: We should instead collect these errors and report them to the user while still returning any successfully found files.
 	if walkErr != nil {
-		return nil, displayable_errors.NewWalkError(".", walkErr)
+		walkErrors.Add(displayable_errors.NewWalkError(walkErr))
 	}
 
 	var (
@@ -116,5 +117,10 @@ func (finder *Finder) FindFiles(pattern string) ([]string, error) {
 	}
 
 	waitGroup.Wait()
-	return files, nil
+	var returnErr error
+	if walkErrors.HasErrors() {
+		returnErr = walkErrors
+	}
+
+	return files, returnErr
 }

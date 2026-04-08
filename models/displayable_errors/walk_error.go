@@ -6,10 +6,10 @@ type WalkError struct {
 	*DisplayableError
 }
 
-func NewWalkError(directory string, err error) *WalkError {
+func NewWalkError(err error) *WalkError {
 	return &WalkError{
 		DisplayableError: &DisplayableError{
-			Description: fmt.Sprintf("Failed to walk directory %s: %v", directory, err),
+			Description: fmt.Sprintf("Failed to walk directory: %v", err),
 		},
 	}
 }
