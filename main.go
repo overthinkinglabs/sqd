@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -90,8 +91,8 @@ func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputI
 
 	var finalErr error
 	if dispatchErr != nil {
-		errorCollection, isCollection := dispatchErr.(*models.ErrorCollection)
-		if isCollection {
+		var errorCollection *models.ErrorCollection
+		if errors.As(dispatchErr, &errorCollection) {
 			utils.AddWalkWarnings(errorCollection, walkWarnings)
 			return errorCollection
 		}

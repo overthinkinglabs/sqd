@@ -11,6 +11,50 @@ import (
 	"github.com/albertoboccolini/sqd/services/files"
 )
 
+func setupPermissionDeniedTest(t *testing.T) ([]string, error) {
+	tmpDir := t.TempDir()
+
+	fileA := filepath.Join(tmpDir, "file_a.md")
+	if err := os.WriteFile(fileA, []byte("content A"), 0o644); err != nil {
+		t.Fatalf("failed to create file_a.md: %v", err)
+	}
+
+	subdir := filepath.Join(tmpDir, "subdir")
+	if err := os.Mkdir(subdir, 0o755); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+
+	fileBPath := filepath.Join(subdir, "file_b.md")
+	if err := os.WriteFile(fileBPath, []byte("content B"), 0o644); err != nil {
+		t.Fatalf("failed to create file_b.md: %v", err)
+	}
+
+	if err := os.Chmod(subdir, 0o000); err != nil {
+		t.Fatalf("failed to chmod subdir: %v", err)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current directory: %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to tmpDir: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if err := os.Chmod(subdir, 0o755); err != nil {
+			t.Errorf("failed to restore subdir permissions: %v", err)
+		}
+		if err := os.Chdir(cwd); err != nil {
+			t.Errorf("failed to restore working directory: %v", err)
+		}
+	})
+
+	finder := files.NewFinder()
+	return finder.FindFiles("*.md")
+}
+
 func TestIsTextFileText(t *testing.T) {
 	file, _ := os.CreateTemp("", "test*.txt")
 	defer os.Remove(file.Name())
@@ -63,32 +107,16 @@ func TestIsTextFileControlChars(t *testing.T) {
 	}
 }
 
-func TestFindFilesWithPermissionDenied(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	fileA := filepath.Join(tmpDir, "file_a.md")
-	os.WriteFile(fileA, []byte("content A"), 0o644)
-
-	subdir := filepath.Join(tmpDir, "subdir")
-	os.Mkdir(subdir, 0o755)
-
-	fileBPath := filepath.Join(subdir, "file_b.md")
-	os.WriteFile(fileBPath, []byte("content B"), 0o644)
-
-	os.Chmod(subdir, 0o000)
-
-	cwd, _ := os.Getwd()
-	defer os.Chdir(cwd)
-	os.Chdir(tmpDir)
-
-	finder := files.NewFinder()
-	foundFiles, err := finder.FindFiles("*.md")
-
-	os.Chmod(subdir, 0o755)
+func TestFindFilesReturnsFilesFoundBeforePermissionError(t *testing.T) {
+	foundFiles, _ := setupPermissionDeniedTest(t)
 
 	if len(foundFiles) == 0 {
 		t.Errorf("should find file_a.md before permission denied on subdir")
 	}
+}
+
+func TestFindFilesReturnsErrorCollectionOnPermissionDenied(t *testing.T) {
+	_, err := setupPermissionDeniedTest(t)
 
 	if err == nil {
 		t.Errorf("should return error with walk warnings")
@@ -98,7 +126,15 @@ func TestFindFilesWithPermissionDenied(t *testing.T) {
 	var errorCollection *models.ErrorCollection
 	if !errors.As(err, &errorCollection) {
 		t.Errorf("should return error collection with walk errors")
-		return
+	}
+}
+
+func TestFindFilesIncludesWalkErrorInCollection(t *testing.T) {
+	_, err := setupPermissionDeniedTest(t)
+
+	var errorCollection *models.ErrorCollection
+	if !errors.As(err, &errorCollection) {
+		t.Fatalf("error should be ErrorCollection")
 	}
 
 	if !errorCollection.HasErrors() {

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -99,12 +100,14 @@ func (utils *Utils) AddWalkWarnings(errorCollection *models.ErrorCollection, wal
 		return
 	}
 
-	walkErrorCollection, ok := walkWarnings.(*models.ErrorCollection)
-	if !ok {
+	var walkErrorCollection *models.ErrorCollection
+	if errors.As(walkWarnings, &walkErrorCollection) {
+		for _, walkErr := range walkErrorCollection.Errors() {
+			errorCollection.Add(walkErr)
+		}
+
 		return
 	}
 
-	for _, walkErr := range walkErrorCollection.Errors() {
-		errorCollection.Add(walkErr)
-	}
+	errorCollection.Add(walkWarnings)
 }
