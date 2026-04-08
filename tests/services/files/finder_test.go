@@ -1,9 +1,13 @@
 package tests
 
 import (
+	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/albertoboccolini/sqd/models"
+	"github.com/albertoboccolini/sqd/models/displayable_errors"
 	"github.com/albertoboccolini/sqd/services/files"
 )
 
@@ -56,5 +60,62 @@ func TestIsTextFileControlChars(t *testing.T) {
 
 	if finder.IsTextFile(file.Name()) {
 		t.Error("file with control chars should not be text")
+	}
+}
+
+func TestFindFilesWithPermissionDenied(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	fileA := filepath.Join(tmpDir, "file_a.md")
+	os.WriteFile(fileA, []byte("content A"), 0o644)
+
+	subdir := filepath.Join(tmpDir, "subdir")
+	os.Mkdir(subdir, 0o755)
+
+	fileBPath := filepath.Join(subdir, "file_b.md")
+	os.WriteFile(fileBPath, []byte("content B"), 0o644)
+
+	os.Chmod(subdir, 0o000)
+
+	cwd, _ := os.Getwd()
+	defer os.Chdir(cwd)
+	os.Chdir(tmpDir)
+
+	finder := files.NewFinder()
+	foundFiles, err := finder.FindFiles("*.md")
+
+	os.Chmod(subdir, 0o755)
+
+	if len(foundFiles) == 0 {
+		t.Errorf("should find file_a.md before permission denied on subdir")
+	}
+
+	if err == nil {
+		t.Errorf("should return error with walk warnings")
+		return
+	}
+
+	var errorCollection *models.ErrorCollection
+	if !errors.As(err, &errorCollection) {
+		t.Errorf("should return error collection with walk errors")
+		return
+	}
+
+	if !errorCollection.HasErrors() {
+		t.Errorf("error collection should have errors")
+		return
+	}
+
+	var walkError *displayable_errors.WalkError
+	found := false
+	for _, e := range errorCollection.Errors() {
+		if errors.As(e, &walkError) {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("should contain walk error in error collection")
 	}
 }
