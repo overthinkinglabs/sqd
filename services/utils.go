@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -92,4 +93,21 @@ func (utils *Utils) HighlightName(file string, pattern *regexp.Regexp) string {
 	baseDir := filepath.Dir(file)
 	highlightedName := utils.HighlightMatch(fileName, pattern)
 	return fmt.Sprintf("%s/%s", baseDir, highlightedName)
+}
+
+func (utils *Utils) AddWalkWarnings(errorCollection *models.ErrorCollection, walkWarnings error) {
+	if walkWarnings == nil {
+		return
+	}
+
+	var walkErrorCollection *models.ErrorCollection
+	if errors.As(walkWarnings, &walkErrorCollection) {
+		for _, walkErr := range walkErrorCollection.Errors() {
+			errorCollection.Add(walkErr)
+		}
+
+		return
+	}
+
+	errorCollection.Add(walkWarnings)
 }
