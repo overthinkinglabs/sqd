@@ -35,21 +35,6 @@ func handleError(errorHandler *services.ErrorHandler, err error) {
 	os.Exit(1)
 }
 
-func addWalkWarnings(errorCollection *models.ErrorCollection, walkWarnings error) {
-	if walkWarnings == nil {
-		return
-	}
-
-	walkErrorCollection, ok := walkWarnings.(*models.ErrorCollection)
-	if !ok {
-		return
-	}
-
-	for _, walkErr := range walkErrorCollection.Errors() {
-		errorCollection.Add(walkErr)
-	}
-}
-
 func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputInDryMode bool) error {
 	validator := sql.NewValidator()
 	if err := validator.Validate(query); err != nil {
@@ -107,7 +92,7 @@ func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputI
 	if dispatchErr != nil {
 		errorCollection, isCollection := dispatchErr.(*models.ErrorCollection)
 		if isCollection {
-			addWalkWarnings(errorCollection, walkWarnings)
+			utils.AddWalkWarnings(errorCollection, walkWarnings)
 			return errorCollection
 		}
 
@@ -118,9 +103,10 @@ func executeQuery(query string, useTransaction, dryRun bool, showDetailedOutputI
 		if finalErr != nil {
 			errorCollection := models.NewErrorCollection()
 			errorCollection.Add(finalErr)
-			addWalkWarnings(errorCollection, walkWarnings)
+			utils.AddWalkWarnings(errorCollection, walkWarnings)
 			return errorCollection
 		}
+
 		return walkWarnings
 	}
 

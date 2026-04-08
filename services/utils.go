@@ -93,3 +93,18 @@ func (utils *Utils) HighlightName(file string, pattern *regexp.Regexp) string {
 	highlightedName := utils.HighlightMatch(fileName, pattern)
 	return fmt.Sprintf("%s/%s", baseDir, highlightedName)
 }
+
+func (utils *Utils) AddWalkWarnings(errorCollection *models.ErrorCollection, walkWarnings error) {
+	if walkWarnings == nil {
+		return
+	}
+
+	walkErrorCollection, ok := walkWarnings.(*models.ErrorCollection)
+	if !ok {
+		return
+	}
+
+	for _, walkErr := range walkErrorCollection.Errors() {
+		errorCollection.Add(walkErr)
+	}
+}
