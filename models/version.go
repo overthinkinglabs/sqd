@@ -1,3 +1,3 @@
 package models
 
-const VERSION = "0.1.9"
+const VERSION = "0.2.0"
