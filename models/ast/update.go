@@ -1,6 +1,6 @@
 package ast
 
-import "github.com/albertoboccolini/sqd/models"
+import "github.com/overthinkinglabs/sqd/models"
 
 type Update struct {
 	Source       string

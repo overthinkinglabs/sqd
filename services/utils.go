@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/albertoboccolini/sqd/models"
+	"github.com/overthinkinglabs/sqd/models"
 )
 
 type Utils struct{}

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/models/displayable_errors"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/models/displayable_errors"
 )
 
 type ErrorHandler struct{}

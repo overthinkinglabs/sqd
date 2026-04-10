@@ -1,9 +1,9 @@
 package dry_mode
 
 import (
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/models/displayable_errors"
-	"github.com/albertoboccolini/sqd/services"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/models/displayable_errors"
+	"github.com/overthinkinglabs/sqd/services"
 )
 
 type Runner struct {

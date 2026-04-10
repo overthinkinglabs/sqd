@@ -1,3 +1,3 @@
-module github.com/albertoboccolini/sqd
+module github.com/overthinkinglabs/sqd
 
 go 1.26.2

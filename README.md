@@ -9,7 +9,7 @@ This project requires **Go >= 1.26.2**. Make sure you have a compatible version 
 1. **Installation**: Install sqd on your system
 
     ```bash
-    go install github.com/albertoboccolini/sqd@latest
+    go install github.com/overthinkinglabs/sqd@latest
     ```
 
 2. **Start using sqd**: See all the open todos in your markdown files

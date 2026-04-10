@@ -3,7 +3,7 @@ package sql
 import (
 	"strings"
 
-	"github.com/albertoboccolini/sqd/models/displayable_errors"
+	"github.com/overthinkinglabs/sqd/models/displayable_errors"
 )
 
 type Validator struct{}

@@ -1,6 +1,6 @@
 package ast
 
-import "github.com/albertoboccolini/sqd/models"
+import "github.com/overthinkinglabs/sqd/models"
 
 type Visitor interface {
 	VisitSelect(statement *Select) (models.Command, error)

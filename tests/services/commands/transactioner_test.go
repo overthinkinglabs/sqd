@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/albertoboccolini/sqd/tests/mock"
+	"github.com/overthinkinglabs/sqd/tests/mock"
 )
 
 func TestTransactionPreservesFilePermissions(t *testing.T) {

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/models/displayable_errors"
-	"github.com/albertoboccolini/sqd/services"
-	"github.com/albertoboccolini/sqd/services/dry_mode"
-	"github.com/albertoboccolini/sqd/services/files"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/models/displayable_errors"
+	"github.com/overthinkinglabs/sqd/services"
+	"github.com/overthinkinglabs/sqd/services/dry_mode"
+	"github.com/overthinkinglabs/sqd/services/files"
 )
 
 type Dispatcher struct {

@@ -8,13 +8,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/models/displayable_errors"
-	"github.com/albertoboccolini/sqd/services"
-	"github.com/albertoboccolini/sqd/services/commands"
-	"github.com/albertoboccolini/sqd/services/dry_mode"
-	"github.com/albertoboccolini/sqd/services/files"
-	"github.com/albertoboccolini/sqd/services/sql"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/models/displayable_errors"
+	"github.com/overthinkinglabs/sqd/services"
+	"github.com/overthinkinglabs/sqd/services/commands"
+	"github.com/overthinkinglabs/sqd/services/dry_mode"
+	"github.com/overthinkinglabs/sqd/services/files"
+	"github.com/overthinkinglabs/sqd/services/sql"
 )
 
 func splitQueries(data []byte, atEOF bool) (advance int, token []byte, err error) {

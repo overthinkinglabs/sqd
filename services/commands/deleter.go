@@ -3,9 +3,9 @@ package commands
 import (
 	"regexp"
 
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/services"
-	"github.com/albertoboccolini/sqd/services/files"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/services"
+	"github.com/overthinkinglabs/sqd/services/files"
 )
 
 type Deleter struct {

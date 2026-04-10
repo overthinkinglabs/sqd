@@ -3,7 +3,7 @@ package ast
 import (
 	"regexp"
 
-	"github.com/albertoboccolini/sqd/models"
+	"github.com/overthinkinglabs/sqd/models"
 )
 
 type Where struct {

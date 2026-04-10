@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/albertoboccolini/sqd/models"
+	"github.com/overthinkinglabs/sqd/models"
 )
 
 type Lexer struct {
