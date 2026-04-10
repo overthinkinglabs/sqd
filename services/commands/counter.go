@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/services/files"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/services/files"
 )
 
 type Counter struct {

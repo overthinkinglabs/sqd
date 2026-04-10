@@ -1,9 +1,9 @@
 package mock
 
 import (
-	"github.com/albertoboccolini/sqd/services"
-	"github.com/albertoboccolini/sqd/services/commands"
-	"github.com/albertoboccolini/sqd/services/files"
+	"github.com/overthinkinglabs/sqd/services"
+	"github.com/overthinkinglabs/sqd/services/commands"
+	"github.com/overthinkinglabs/sqd/services/files"
 )
 
 func NewDispatcher() *commands.Dispatcher {

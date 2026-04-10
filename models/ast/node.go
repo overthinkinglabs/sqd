@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"github.com/albertoboccolini/sqd/models"
+	"github.com/overthinkinglabs/sqd/models"
 )
 
 type Node interface {

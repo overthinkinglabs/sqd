@@ -3,8 +3,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/tests/mock"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/tests/mock"
 )
 
 func TestParseSelect(t *testing.T) {

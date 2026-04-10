@@ -3,7 +3,7 @@ package commands
 import (
 	"sort"
 
-	"github.com/albertoboccolini/sqd/models"
+	"github.com/overthinkinglabs/sqd/models"
 )
 
 type Sorter struct{}

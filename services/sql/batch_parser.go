@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/albertoboccolini/sqd/models"
+	"github.com/overthinkinglabs/sqd/models"
 )
 
 type BatchParser struct {

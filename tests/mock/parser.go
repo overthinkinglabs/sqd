@@ -1,8 +1,8 @@
 package mock
 
 import (
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/services/sql"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/services/sql"
 )
 
 type MockParser struct {

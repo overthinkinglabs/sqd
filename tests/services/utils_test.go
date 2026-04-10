@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/albertoboccolini/sqd/services"
+	"github.com/overthinkinglabs/sqd/services"
 )
 
 func TestIsPathInsideCwdRelative(t *testing.T) {

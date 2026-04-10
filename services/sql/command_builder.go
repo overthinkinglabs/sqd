@@ -1,8 +1,8 @@
 package sql
 
 import (
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/models/ast"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/models/ast"
 )
 
 type CommandBuilder struct{}

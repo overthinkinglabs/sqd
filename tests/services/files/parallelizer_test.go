@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/albertoboccolini/sqd/models"
-	"github.com/albertoboccolini/sqd/tests/mock"
+	"github.com/overthinkinglabs/sqd/models"
+	"github.com/overthinkinglabs/sqd/tests/mock"
 )
 
 func TestParallelProcessingWithErrors(t *testing.T) {
