@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/overthinkinglabs/sqd/src/models"
 	"github.com/overthinkinglabs/sqd/src/models/displayable_errors"
@@ -45,8 +46,8 @@ func (transactioner *Transactioner) execute(files []string,
 	total := 0
 
 	for _, file := range files {
-		backupPath := file + ".sqd_backup"
-		if err := os.Rename(file, backupPath); err != nil {
+		backupPath, err := transactioner.createUniqueBackup(file)
+		if err != nil {
 			transactioner.rollbackFiles(backups)
 			return 0, displayable_errors.NewTransactionFailedError(err.Error())
 		}
@@ -69,6 +70,31 @@ func (transactioner *Transactioner) execute(files []string,
 	}
 
 	return total, nil
+}
+
+// It renames the original file to a uniquely named backup in the same directory. Using os.CreateTemp avoids silently
+// overwriting a pre-existing .sqd_backup file from a previous crashed run.
+func (transactioner *Transactioner) createUniqueBackup(file string) (string, error) {
+	dir := filepath.Dir(file)
+	tempFile, createErr := os.CreateTemp(dir, ".sqd_backup_*")
+	if createErr != nil {
+		return "", createErr
+	}
+
+	tempName := tempFile.Name()
+	if closeErr := tempFile.Close(); closeErr != nil {
+		_ = os.Remove(tempName)
+		return "", closeErr
+	}
+	if removeErr := os.Remove(tempName); removeErr != nil {
+		return "", removeErr
+	}
+
+	if renameErr := os.Rename(file, tempName); renameErr != nil {
+		return "", renameErr
+	}
+
+	return tempName, nil
 }
 
 func (transactioner *Transactioner) checkFilesBeforeTransaction(files []string) error {

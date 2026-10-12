@@ -17,13 +17,11 @@ func NewFileReader(utils *services.Utils) *FileReader {
 	return &FileReader{utils: utils}
 }
 
+// It checks path safety and reads the file for dry run preview. Unlike Processor.ProcessFile, it does NOT require write
+// permissions dry mode is read-only and should work on read-only files.
 func (fileReader *FileReader) ValidateAndReadFile(file string) ([]string, error) {
 	if !fileReader.utils.IsPathInsideCwd(file) {
 		return nil, displayable_errors.NewInvalidPathError(file)
-	}
-
-	if !fileReader.utils.CanWriteFile(file) {
-		return nil, displayable_errors.NewPermissionDeniedError(file)
 	}
 
 	data, err := os.ReadFile(file)

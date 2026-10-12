@@ -2,9 +2,11 @@ package files
 
 import (
 	"errors"
+	"io"
 	"os"
 	"strings"
 
+	"github.com/overthinkinglabs/sqd/src/models"
 	"github.com/overthinkinglabs/sqd/src/models/displayable_errors"
 	"github.com/overthinkinglabs/sqd/src/services"
 )
@@ -25,12 +27,24 @@ func (processor *Processor) ProcessFile(filename string, transformFunc func([]st
 		return 0, displayable_errors.NewPermissionDeniedError(filename)
 	}
 
-	info, err := os.Stat(filename)
+	// Open the file once and operate on the same descriptor to avoid TOCTOU races where the path could be swapped for a
+	// symlink between check and write.
+	file, err := os.OpenFile(filename, os.O_RDWR, 0)
+	if err != nil {
+		return 0, processor.mapFileError(filename, err)
+	}
+	defer func() { _ = file.Close() }()
+
+	info, err := file.Stat()
 	if err != nil {
 		return 0, processor.mapFileError(filename, err)
 	}
 
-	data, err := os.ReadFile(filename)
+	if info.Size() > models.MAX_FILE_SIZE {
+		return 0, displayable_errors.NewFileTooLargeError(filename, info.Size(), models.MAX_FILE_SIZE)
+	}
+
+	data, err := io.ReadAll(file)
 	if err != nil {
 		return 0, processor.mapFileError(filename, err)
 	}
@@ -42,7 +56,15 @@ func (processor *Processor) ProcessFile(filename string, transformFunc func([]st
 		return 0, nil
 	}
 
-	if err := os.WriteFile(filename, []byte(strings.Join(newLines, "\n")), info.Mode().Perm()); err != nil {
+	if err := file.Truncate(0); err != nil {
+		return 0, processor.mapFileError(filename, err)
+	}
+
+	if _, err := file.Seek(0, 0); err != nil {
+		return 0, processor.mapFileError(filename, err)
+	}
+
+	if _, err := file.WriteString(strings.Join(newLines, "\n")); err != nil {
 		return 0, processor.mapFileError(filename, err)
 	}
 

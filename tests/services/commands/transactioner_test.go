@@ -106,8 +106,9 @@ func TestTransactionMultipleFilesSuccess(t *testing.T) {
 	}
 
 	for _, f := range []string{file1, file2, file3} {
-		if _, err := os.Stat(f + ".sqd_backup"); err == nil {
-			t.Errorf("backup for %s should be cleaned up after successful transaction", f)
+		matches, _ := filepath.Glob(filepath.Join(filepath.Dir(f), ".sqd_backup_*"))
+		if len(matches) > 0 {
+			t.Errorf("backup files for %s should be cleaned up after successful transaction, found: %v", f, matches)
 		}
 	}
 }
