@@ -114,7 +114,7 @@ func executeQuery(
 	}
 
 	finder := files.NewFinder(ignoreList)
-	processor := files.NewProcessor(utils)
+	processor := files.NewProcessor(defaultConfig, utils)
 	parallelizer := files.NewParallelizer(utils)
 
 	foundFiles, walkWarnings := finder.FindFiles(command.File)
@@ -235,13 +235,13 @@ func registerCommonFlags(flagSet *flag.FlagSet, variables map[string]string, def
 	return transactionFlag, queryFile
 }
 
-func handleInitCommand(loader *default_config.Loader, errorHandler *services.ErrorHandler) {
+func handleInitCommand(defaultConfig *models.DefaultConfig, loader *default_config.Loader, errorHandler *services.ErrorHandler) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		handleError(errorHandler, err)
 	}
 
-	initializer := default_config.NewInitializer(loader)
+	initializer := default_config.NewInitializer(defaultConfig, loader)
 
 	configPath, configCreated, ignorePath, ignoreCreated, err := initializer.InitResult(cwd)
 	if err != nil {
@@ -315,10 +315,11 @@ func handleDryModeCommand(args []string, errorHandler *services.ErrorHandler, de
 
 func main() {
 	errorHandler := services.NewErrorHandler()
-	loader := default_config.NewLoader()
+	defaultConfig := models.NewDefaultConfig()
+	loader := default_config.NewLoader(defaultConfig)
 
 	if len(os.Args) > 1 && os.Args[1] == "init" {
-		handleInitCommand(loader, errorHandler)
+		handleInitCommand(defaultConfig, loader, errorHandler)
 		return
 	}
 

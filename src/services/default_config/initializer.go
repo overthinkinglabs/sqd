@@ -1,16 +1,21 @@
 package default_config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/overthinkinglabs/sqd/src/models"
 )
 
 type Initializer struct {
-	loader *Loader
+	defaultConfig *models.DefaultConfig
+	loader        *Loader
 }
 
-func NewInitializer(loader *Loader) *Initializer {
+func NewInitializer(defaultConfig *models.DefaultConfig, loader *Loader) *Initializer {
 	return &Initializer{
+		defaultConfig,
 		loader,
 	}
 }
@@ -27,14 +32,15 @@ func (initializer *Initializer) InitConfig() (string, bool, error) {
 		return fullPath, false, nil
 	}
 
-	defaultConfigJSON := `{
-		"output": {
-			"color": "blue",
-			"show_stats": true
-		},
-		"from_aliases": {}
-	}
-	`
+	defaultConfigJSON := fmt.Sprintf(`{
+	"output": {
+		"color": "blue",
+		"show_stats": true
+	},
+	"from_aliases": {},
+	"max_file_size_in_memory": %d
+}
+`, initializer.defaultConfig.MaxFileSizeInMemory)
 
 	return fullPath, true, os.WriteFile(fullPath, []byte(defaultConfigJSON), 0o644)
 }

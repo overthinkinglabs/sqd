@@ -23,41 +23,23 @@ func NewDeleter(processor *files.Processor, utils *services.Utils, lineReader *L
 }
 
 func (deleter *Deleter) Single(file string, pattern *regexp.Regexp, negate bool) (int, error) {
-	return deleter.processor.ProcessFile(file, func(lines []string) ([]string, int) {
-		filtered := []string{}
-		count := 0
-		for _, line := range lines {
-			if !deleter.lineReader.MatchesCondition(line, pattern, negate) {
-				filtered = append(filtered, line)
-				continue
-			}
-
-			count++
+	return deleter.processor.ProcessFile(file, func(line string) (string, bool, bool, error) {
+		if deleter.lineReader.MatchesCondition(line, pattern, negate) {
+			return "", true, false, nil
 		}
-		return filtered, count
+
+		return line, false, true, nil
 	})
 }
 
 func (deleter *Deleter) Batch(file string, deletions []models.Deletion) (int, error) {
-	return deleter.processor.ProcessFile(file, func(lines []string) ([]string, int) {
-		filtered := []string{}
-		count := 0
-		for _, line := range lines {
-			shouldDelete := false
-			for _, deletion := range deletions {
-				if deleter.lineReader.MatchesCondition(line, deletion.Pattern, deletion.Negate) {
-					shouldDelete = true
-					break
-				}
+	return deleter.processor.ProcessFile(file, func(line string) (string, bool, bool, error) {
+		for _, deletion := range deletions {
+			if deleter.lineReader.MatchesCondition(line, deletion.Pattern, deletion.Negate) {
+				return "", true, false, nil
 			}
-
-			if shouldDelete {
-				count++
-				continue
-			}
-
-			filtered = append(filtered, line)
 		}
-		return filtered, count
+
+		return line, false, true, nil
 	})
 }

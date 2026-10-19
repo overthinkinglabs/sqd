@@ -10,7 +10,7 @@ import (
 func NewDispatcher() *commands.Dispatcher {
 	defaultConfig := models.NewDefaultConfig()
 	utils := services.NewUtils(defaultConfig)
-	processor := files.NewProcessor(utils)
+	processor := files.NewProcessor(defaultConfig, utils)
 
 	parallelizer := files.NewParallelizer(utils)
 	dryModeRunner := NewDryModeRunner()
