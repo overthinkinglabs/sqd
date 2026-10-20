@@ -9,10 +9,14 @@ import (
 	"github.com/overthinkinglabs/sqd/src/models"
 )
 
-type Loader struct{}
+type Loader struct {
+	defaultConfig *models.DefaultConfig
+}
 
-func NewLoader() *Loader {
-	return &Loader{}
+func NewLoader(defaultConfig *models.DefaultConfig) *Loader {
+	return &Loader{
+		defaultConfig: defaultConfig,
+	}
 }
 
 func (loader *Loader) expandTilde(path string) string {
@@ -38,8 +42,7 @@ func (loader *Loader) configPath() string {
 }
 
 func (loader *Loader) LoadConfig() (*models.DefaultConfig, error) {
-	config := models.NewDefaultConfig()
-
+	config := loader.defaultConfig
 	configFile := loader.configPath()
 	data, err := os.ReadFile(configFile)
 	if err != nil {

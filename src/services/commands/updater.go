@@ -23,38 +23,33 @@ func NewUpdater(processor *files.Processor, utils *services.Utils, lineReader *L
 }
 
 func (updater *Updater) Single(file string, pattern *regexp.Regexp, negate bool, replace string) (int, error) {
-	return updater.processor.ProcessFile(file, func(lines []string) ([]string, int) {
-		count := 0
-		for i, line := range lines {
-			if updater.lineReader.MatchesCondition(line, pattern, negate) {
-				lines[i] = replace
-				if !negate {
-					lines[i] = pattern.ReplaceAllLiteralString(line, replace)
-				}
-
-				count++
-			}
+	return updater.processor.ProcessFile(file, func(line string) (string, bool, bool, error) {
+		if !updater.lineReader.MatchesCondition(line, pattern, negate) {
+			return line, false, true, nil
 		}
-		return lines, count
+
+		if negate {
+			return replace, true, true, nil
+		}
+
+		return pattern.ReplaceAllLiteralString(line, replace), true, true, nil
 	})
 }
 
 func (updater *Updater) Batch(file string, replacements []models.Replacement) (int, error) {
-	return updater.processor.ProcessFile(file, func(lines []string) ([]string, int) {
-		count := 0
-		for i, line := range lines {
-			for _, replacement := range replacements {
-				if updater.lineReader.MatchesCondition(line, replacement.Pattern, replacement.Negate) {
-					lines[i] = replacement.Replace
-					if !replacement.Negate {
-						lines[i] = replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace)
-					}
-
-					count++
-					break
-				}
+	return updater.processor.ProcessFile(file, func(line string) (string, bool, bool, error) {
+		for _, replacement := range replacements {
+			if !updater.lineReader.MatchesCondition(line, replacement.Pattern, replacement.Negate) {
+				continue
 			}
+
+			if replacement.Negate {
+				return replacement.Replace, true, true, nil
+			}
+
+			return replacement.Pattern.ReplaceAllLiteralString(line, replacement.Replace), true, true, nil
 		}
-		return lines, count
+
+		return line, false, true, nil
 	})
 }

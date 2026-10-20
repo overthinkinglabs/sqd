@@ -5,7 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/overthinkinglabs/sqd/src/models"
 	"github.com/overthinkinglabs/sqd/src/services/default_config"
+	"github.com/overthinkinglabs/sqd/tests/mock"
 )
 
 func TestInitCreatesConfigAndIgnore(t *testing.T) {
@@ -16,8 +18,9 @@ func TestInitCreatesConfigAndIgnore(t *testing.T) {
 	os.Setenv("HOME", tmpHome)
 	defer os.Setenv("HOME", homeDir)
 
-	loader := default_config.NewLoader()
-	initializer := default_config.NewInitializer(loader)
+	defaultConfig := models.NewDefaultConfig()
+	loader := mock.NewLoader()
+	initializer := default_config.NewInitializer(defaultConfig, loader)
 	configPath, configCreated, ignorePath, ignoreCreated, err := initializer.InitResult(tmpCwd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -63,8 +66,9 @@ func TestInitDoesNotOverwriteExistingFiles(t *testing.T) {
 		t.Fatalf("failed to write ignore: %v", err)
 	}
 
-	loader := default_config.NewLoader()
-	initializer := default_config.NewInitializer(loader)
+	defaultConfig := models.NewDefaultConfig()
+	loader := mock.NewLoader()
+	initializer := default_config.NewInitializer(defaultConfig, loader)
 	configPath, configCreated, ignorePath, ignoreCreated, err := initializer.InitResult(tmpCwd)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

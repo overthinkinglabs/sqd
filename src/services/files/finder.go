@@ -12,16 +12,14 @@ import (
 )
 
 type Finder struct {
-	maxTextFileSize int64
-	bufferSize      int
-	ignoreList      *IgnoreList
+	bufferSize int
+	ignoreList *IgnoreList
 }
 
 func NewFinder(ignoreList *IgnoreList) *Finder {
 	return &Finder{
-		maxTextFileSize: 100 * 1024 * 1024,
-		bufferSize:      8000,
-		ignoreList:      ignoreList,
+		bufferSize: 8000,
+		ignoreList: ignoreList,
 	}
 }
 
@@ -33,17 +31,10 @@ func NewFinder(ignoreList *IgnoreList) *Finder {
 // Note: inaccessible files will be treated as text files and may cause
 // errors during subsequent read operations.
 func (finder *Finder) IsTextFile(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {
-		return true
-	}
-
-	if info.Size() > finder.maxTextFileSize {
-		return false
-	}
-
 	file, err := os.Open(path)
 	if err != nil {
+		// Files that cannot be opened are treated as text so upper layers can surface the real error instead of silently
+		// skipping them.
 		return true
 	}
 

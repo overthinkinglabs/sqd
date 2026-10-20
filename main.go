@@ -20,6 +20,12 @@ import (
 	"github.com/overthinkinglabs/sqd/src/services/variables"
 )
 
+type commonFlags struct {
+	transaction *bool
+	queryFile   *string
+	useEnv      *bool
+}
+
 func splitQueries(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	for i := range data {
 		if data[i] == ';' {
@@ -37,6 +43,25 @@ func splitQueries(data []byte, atEOF bool) (advance int, token []byte, err error
 func handleError(errorHandler *services.ErrorHandler, err error) {
 	errorHandler.HandleError(err)
 	os.Exit(1)
+}
+
+const useEnvWarningMessage = `--use-env enables expansion of environment variables in queries.
+Any $VAR not defined with --var will be read from the process environment,
+which can inject unintended values into UPDATE and DELETE operations.`
+
+const fileQueryWarningMessage = "Executing queries from a file can run UPDATE and DELETE operations. Only use files from a trusted source."
+
+func confirmOrAbort(message string, errorHandler *services.ErrorHandler) {
+	warner := services.NewWarner(os.Stdin)
+	proceed, confirmErr := warner.Confirm(message)
+	if confirmErr != nil {
+		handleError(errorHandler, confirmErr)
+	}
+
+	if !proceed {
+		fmt.Fprintln(os.Stderr, "Aborted.")
+		os.Exit(1)
+	}
 }
 
 func parseVariable(value string) (string, string, error) {
@@ -88,8 +113,9 @@ func executeQuery(
 	showDetailedOutputInDryMode bool,
 	outputFormat models.OutputFormat,
 	defaultConfig *models.DefaultConfig,
+	useEnv bool,
 ) error {
-	expander := variables.NewExpander()
+	expander := variables.NewExpander(useEnv)
 	expandedQuery := expander.Expand(query, definedVariables)
 
 	validator := sql.NewValidator()
@@ -114,7 +140,7 @@ func executeQuery(
 	}
 
 	finder := files.NewFinder(ignoreList)
-	processor := files.NewProcessor(utils)
+	processor := files.NewProcessor(defaultConfig, utils)
 	parallelizer := files.NewParallelizer(utils)
 
 	foundFiles, walkWarnings := finder.FindFiles(command.File)
@@ -185,6 +211,7 @@ func executeQueriesFromFile(
 	showDetailedOutputInDryMode bool,
 	outputFormat models.OutputFormat,
 	defaultConfig *models.DefaultConfig,
+	useEnv bool,
 ) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -213,6 +240,7 @@ func executeQueriesFromFile(
 			showDetailedOutputInDryMode,
 			outputFormat,
 			defaultConfig,
+			useEnv,
 		); err != nil {
 			return err
 		}
@@ -225,23 +253,25 @@ func executeQueriesFromFile(
 	return nil
 }
 
-func registerCommonFlags(flagSet *flag.FlagSet, variables map[string]string, defaultTransaction bool) (*bool, *string) {
+func registerCommonFlags(flagSet *flag.FlagSet, variables map[string]string, defaultTransaction bool) commonFlags {
 	transactionFlag := flagSet.Bool("transaction", defaultTransaction, "Enable transaction mode with rollback on failure")
 	flagSet.BoolVar(transactionFlag, "t", defaultTransaction, "Enable transaction mode with rollback on failure")
 	queryFile := flagSet.String("file", "", "Path to a file containing queries to execute")
 	flagSet.StringVar(queryFile, "f", "", "Path to a file containing queries to execute")
+	useEnvFlag := flagSet.Bool("use-env", false, "Expand undefined $VAR placeholders from environment variables")
+	flagSet.BoolVar(useEnvFlag, "ue", false, "Expand undefined $VAR placeholders from environment variables")
 	registerVariableFlag(flagSet, variables)
 
-	return transactionFlag, queryFile
+	return commonFlags{transaction: transactionFlag, queryFile: queryFile, useEnv: useEnvFlag}
 }
 
-func handleInitCommand(loader *default_config.Loader, errorHandler *services.ErrorHandler) {
+func handleInitCommand(defaultConfig *models.DefaultConfig, loader *default_config.Loader, errorHandler *services.ErrorHandler) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		handleError(errorHandler, err)
 	}
 
-	initializer := default_config.NewInitializer(loader)
+	initializer := default_config.NewInitializer(defaultConfig, loader)
 
 	configPath, configCreated, ignorePath, ignoreCreated, err := initializer.InitResult(cwd)
 	if err != nil {
@@ -267,20 +297,26 @@ func handleDryModeCommand(args []string, errorHandler *services.ErrorHandler, de
 	dryFlagSet.BoolVar(completeFlag, "c", false, "Show file names with modified lines")
 
 	definedVariables := make(map[string]string)
-	transactionFlag, queryFile := registerCommonFlags(dryFlagSet, definedVariables, false)
+	common := registerCommonFlags(dryFlagSet, definedVariables, false)
 
 	if err := dryFlagSet.Parse(args); err != nil {
 		handleError(errorHandler, err)
 	}
 
-	if *queryFile != "" {
+	if *common.useEnv {
+		confirmOrAbort(useEnvWarningMessage, errorHandler)
+	}
+
+	if *common.queryFile != "" {
+		confirmOrAbort(fileQueryWarningMessage, errorHandler)
 		if err := executeQueriesFromFile(
-			*queryFile,
+			*common.queryFile,
 			definedVariables,
-			*transactionFlag,
+			*common.transaction,
 			true, *completeFlag,
 			models.TextOutput,
 			defaultConfig,
+			*common.useEnv,
 		); err != nil {
 			handleError(errorHandler, err)
 		}
@@ -295,6 +331,7 @@ func handleDryModeCommand(args []string, errorHandler *services.ErrorHandler, de
 		fmt.Println("  -t, --transaction Enable transaction mode with rollback on failure")
 		fmt.Println("  -f, --file        Path to a file containing queries to execute")
 		fmt.Println("      --var         Define a variable as key=value (can be repeated)")
+		fmt.Println("  -ue, --use-env    Expand undefined $VAR from environment variables")
 		os.Exit(1)
 	}
 
@@ -303,11 +340,12 @@ func handleDryModeCommand(args []string, errorHandler *services.ErrorHandler, de
 	if err := executeQuery(
 		query,
 		definedVariables,
-		*transactionFlag,
+		*common.transaction,
 		true,
 		*completeFlag,
 		models.TextOutput,
 		defaultConfig,
+		*common.useEnv,
 	); err != nil {
 		handleError(errorHandler, err)
 	}
@@ -315,10 +353,11 @@ func handleDryModeCommand(args []string, errorHandler *services.ErrorHandler, de
 
 func main() {
 	errorHandler := services.NewErrorHandler()
-	loader := default_config.NewLoader()
+	defaultConfig := models.NewDefaultConfig()
+	loader := default_config.NewLoader(defaultConfig)
 
 	if len(os.Args) > 1 && os.Args[1] == "init" {
-		handleInitCommand(loader, errorHandler)
+		handleInitCommand(defaultConfig, loader, errorHandler)
 		return
 	}
 
@@ -336,7 +375,7 @@ func main() {
 	flag.BoolVar(versionFlag, "v", false, "Print version information")
 
 	definedVariables := make(map[string]string)
-	transactionFlag, queryFile := registerCommonFlags(flag.CommandLine, definedVariables, false)
+	common := registerCommonFlags(flag.CommandLine, definedVariables, false)
 
 	jsonFlag := flag.Bool("json", false, "Print query output as JSON")
 	csvFlag := flag.Bool("csv", false, "Print query output as CSV")
@@ -361,15 +400,21 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *queryFile != "" {
+	if *common.useEnv {
+		confirmOrAbort(useEnvWarningMessage, errorHandler)
+	}
+
+	if *common.queryFile != "" {
+		confirmOrAbort(fileQueryWarningMessage, errorHandler)
 		if err := executeQueriesFromFile(
-			*queryFile,
+			*common.queryFile,
 			definedVariables,
-			*transactionFlag,
+			*common.transaction,
 			false,
 			false,
 			outputFormat,
 			defaultConfig,
+			*common.useEnv,
 		); err != nil {
 			handleError(errorHandler, err)
 		}
@@ -415,12 +460,13 @@ func main() {
 		fmt.Println("      --json        Print SELECT/COUNT output as JSON")
 		fmt.Println("      --csv         Print SELECT/COUNT output as CSV")
 		fmt.Println("      --var         Define a variable as key=value (can be repeated)")
+		fmt.Println("  -ue, --use-env    Expand undefined $VAR from environment variables")
 		os.Exit(1)
 	}
 
 	sql := strings.Join(flag.Args(), " ")
 
-	if err := executeQuery(sql, definedVariables, *transactionFlag, false, false, outputFormat, defaultConfig); err != nil {
+	if err := executeQuery(sql, definedVariables, *common.transaction, false, false, outputFormat, defaultConfig, *common.useEnv); err != nil {
 		handleError(errorHandler, err)
 	}
 }

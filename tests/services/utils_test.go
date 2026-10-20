@@ -8,6 +8,7 @@ import (
 
 	"github.com/overthinkinglabs/sqd/src/models"
 	"github.com/overthinkinglabs/sqd/src/services"
+	"github.com/overthinkinglabs/sqd/tests/mock"
 )
 
 func TestIsPathInsideCwdRelative(t *testing.T) {
@@ -16,8 +17,7 @@ func TestIsPathInsideCwdRelative(t *testing.T) {
 	os.WriteFile(file, []byte("test"), 0o644)
 	defer os.Remove(file)
 
-	defaultConfig := models.NewDefaultConfig()
-	utils := services.NewUtils(defaultConfig)
+	utils := mock.NewUtils()
 
 	if !utils.IsPathInsideCwd("./test.txt") {
 		t.Error("relative path should be valid")
@@ -29,8 +29,7 @@ func TestIsPathInsideCwdRelative(t *testing.T) {
 }
 
 func TestIsPathInsideCwdAbsolute(t *testing.T) {
-	defaultConfig := models.NewDefaultConfig()
-	utils := services.NewUtils(defaultConfig)
+	utils := mock.NewUtils()
 
 	if utils.IsPathInsideCwd("/etc/passwd") {
 		t.Error("absolute path outside cwd should be invalid")
@@ -38,8 +37,7 @@ func TestIsPathInsideCwdAbsolute(t *testing.T) {
 }
 
 func TestIsPathInsideCwdTraversal(t *testing.T) {
-	defaultConfig := models.NewDefaultConfig()
-	utils := services.NewUtils(defaultConfig)
+	utils := mock.NewUtils()
 
 	if utils.IsPathInsideCwd("../../../etc/passwd") {
 		t.Error("path traversal should be blocked")
@@ -56,8 +54,7 @@ func TestIsPathInsideCwdSymlink(t *testing.T) {
 	os.Symlink("/tmp", symlink)
 	defer os.Remove(symlink)
 
-	defaultConfig := models.NewDefaultConfig()
-	utils := services.NewUtils(defaultConfig)
+	utils := mock.NewUtils()
 
 	if utils.IsPathInsideCwd(symlink) {
 		t.Error("symlink outside cwd should be invalid")

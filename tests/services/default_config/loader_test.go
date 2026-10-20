@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/overthinkinglabs/sqd/src/services/default_config"
+	"github.com/overthinkinglabs/sqd/tests/mock"
 )
 
 func writeConfigFile(t *testing.T, configDir string, content string) {
@@ -27,7 +27,7 @@ func TestLoadConfigReturnsDefaultsWhenMissing(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", homeDir)
 
-	loader := default_config.NewLoader()
+	loader := mock.NewLoader()
 	loadedConfig, err := loader.LoadConfig()
 	if err != nil {
 		t.Fatalf("expected no error for missing config, got %v", err)
@@ -40,6 +40,10 @@ func TestLoadConfigReturnsDefaultsWhenMissing(t *testing.T) {
 	if !loadedConfig.Output.ShowStats {
 		t.Error("expected show_stats true by default")
 	}
+
+	if loadedConfig.MaxFileSizeInMemory != 512 {
+		t.Errorf("expected max_file_size_in_memory 512 by default, got %d", loadedConfig.MaxFileSizeInMemory)
+	}
 }
 
 func TestLoadConfigReadsGlobalFile(t *testing.T) {
@@ -51,11 +55,12 @@ func TestLoadConfigReadsGlobalFile(t *testing.T) {
 
 	content := `{
 		"output": {"color": "green", "show_stats": false},
-		"from_aliases": {"md": "*.md"}
+		"from_aliases": {"md": "*.md"},
+		"max_file_size_in_memory": 1024
 	}`
 	writeConfigFile(t, filepath.Join(tmpDir, ".config", "sqd"), content)
 
-	loader := default_config.NewLoader()
+	loader := mock.NewLoader()
 	loadedConfig, err := loader.LoadConfig()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -72,6 +77,10 @@ func TestLoadConfigReadsGlobalFile(t *testing.T) {
 	if loadedConfig.FromAliases["md"] != "*.md" {
 		t.Errorf("expected md alias *.md, got %s", loadedConfig.FromAliases["md"])
 	}
+
+	if loadedConfig.MaxFileSizeInMemory != 1024 {
+		t.Errorf("expected max_file_size_in_memory 1024 from config, got %d", loadedConfig.MaxFileSizeInMemory)
+	}
 }
 
 func TestLoadConfigReturnsErrorForInvalidJSON(t *testing.T) {
@@ -83,7 +92,7 @@ func TestLoadConfigReturnsErrorForInvalidJSON(t *testing.T) {
 
 	writeConfigFile(t, filepath.Join(tmpDir, ".config", "sqd"), "not json")
 
-	loader := default_config.NewLoader()
+	loader := mock.NewLoader()
 	_, err := loader.LoadConfig()
 	if err == nil {
 		t.Error("expected error for invalid JSON")

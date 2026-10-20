@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -156,5 +157,31 @@ func TestFindFilesIncludesWalkErrorInCollection(t *testing.T) {
 
 	if !found {
 		t.Errorf("should contain walk error in error collection")
+	}
+}
+
+func TestLargeLogFilesAreProcessedInChunks(t *testing.T) {
+	tmpDir := t.TempDir()
+	logFile := filepath.Join(tmpDir, "large.log")
+
+	defaultConfig := models.NewDefaultConfig()
+	maxInMemorySize := int64(defaultConfig.MaxFileSizeInMemory) * 1024 * 1024
+
+	// Write a text header so the file is recognised as text, then extend it with a sparse tail beyond the in-memory
+	// threshold. This keeps the test fast while still exercising a file size larger than the streaming threshold.
+	header := bytes.Repeat([]byte{'a'}, 9000)
+	if err := os.WriteFile(logFile, header, 0o644); err != nil {
+		t.Fatalf("failed to create log file: %v", err)
+	}
+
+	if err := os.Truncate(logFile, maxInMemorySize+1); err != nil {
+		t.Fatalf("failed to truncate log file: %v", err)
+	}
+
+	ignoreList := files.NewIgnoreList()
+	finder := files.NewFinder(ignoreList)
+
+	if !finder.IsTextFile(logFile) {
+		t.Errorf("log file larger than %d bytes should still be treated as text and processed in chunks", maxInMemorySize)
 	}
 }

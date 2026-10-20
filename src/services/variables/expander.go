@@ -5,10 +5,12 @@ import (
 	"strings"
 )
 
-type Expander struct{}
+type Expander struct {
+	useEnv bool
+}
 
-func NewExpander() *Expander {
-	return &Expander{}
+func NewExpander(useEnv bool) *Expander {
+	return &Expander{useEnv: useEnv}
 }
 
 func (expander *Expander) Expand(query string, variables map[string]string) string {
@@ -33,7 +35,7 @@ func (expander *Expander) Expand(query string, variables map[string]string) stri
 		if query[nextIndex] == '{' {
 			name, consumed := readBracedIdentifier(query, nextIndex+1)
 			if consumed > 0 {
-				writeReplacement(&result, name, true, variables)
+				expander.writeReplacement(&result, name, true, variables)
 				index = nextIndex + consumed + 2
 				continue
 			}
@@ -41,7 +43,7 @@ func (expander *Expander) Expand(query string, variables map[string]string) stri
 
 		name, consumed := readIdentifier(query, nextIndex)
 		if consumed > 0 {
-			writeReplacement(&result, name, false, variables)
+			expander.writeReplacement(&result, name, false, variables)
 			index = nextIndex + consumed
 			continue
 		}
@@ -86,15 +88,17 @@ func isIdentifierContinue(char byte) bool {
 	return isIdentifierStart(char) || (char >= '0' && char <= '9')
 }
 
-func writeReplacement(result *strings.Builder, name string, braced bool, variables map[string]string) {
+func (expander *Expander) writeReplacement(result *strings.Builder, name string, braced bool, variables map[string]string) {
 	if value, ok := variables[name]; ok {
 		result.WriteString(value)
 		return
 	}
 
-	if value, ok := os.LookupEnv(name); ok {
-		result.WriteString(value)
-		return
+	if expander.useEnv {
+		if value, ok := os.LookupEnv(name); ok {
+			result.WriteString(value)
+			return
+		}
 	}
 
 	if braced {

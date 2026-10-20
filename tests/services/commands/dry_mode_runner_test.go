@@ -64,7 +64,7 @@ func TestValidateNonTransactionModeContinuesAfterError(t *testing.T) {
 	}
 }
 
-func TestValidatePermissionDenied(t *testing.T) {
+func TestValidateReadOnlyFileSucceeds(t *testing.T) {
 	cwd, _ := os.Getwd()
 	testFile := filepath.Join(cwd, "readonly.txt")
 	os.WriteFile(testFile, []byte("content\n"), 0o400)
@@ -82,16 +82,15 @@ func TestValidatePermissionDenied(t *testing.T) {
 	stats := &models.ExecutionStats{}
 
 	err := dryRunner.Validate(command, []string{testFile}, stats, false, false)
-
-	if err == nil {
-		t.Error("expected error for permission denied")
+	if err != nil {
+		t.Errorf("dry run should succeed on read-only files, got error: %v", err)
 	}
 
-	if stats.Skipped != 1 {
-		t.Errorf("expected 1 skipped for permission denied, got %d", stats.Skipped)
+	if stats.Processed != 1 {
+		t.Errorf("expected 1 file processed, got %d", stats.Processed)
 	}
 
-	if stats.Processed != 0 {
-		t.Errorf("expected 0 processed for permission denied, got %d", stats.Processed)
+	if stats.Skipped != 0 {
+		t.Errorf("expected 0 skipped, got %d", stats.Skipped)
 	}
 }

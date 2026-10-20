@@ -7,7 +7,7 @@ import (
 )
 
 func TestExpanderReplacesDefinedVariables(t *testing.T) {
-	expander := variables.NewExpander()
+	expander := variables.NewExpander(false)
 
 	result := expander.Expand("hello $name and ${place}", map[string]string{
 		"name":  "world",
@@ -21,7 +21,7 @@ func TestExpanderReplacesDefinedVariables(t *testing.T) {
 }
 
 func TestExpanderFallsBackToEnvironmentVariables(t *testing.T) {
-	expander := variables.NewExpander()
+	expander := variables.NewExpander(true)
 	t.Setenv("SQD_TEST_ENV", "from_env")
 
 	result := expander.Expand("value is $SQD_TEST_ENV", nil)
@@ -33,7 +33,7 @@ func TestExpanderFallsBackToEnvironmentVariables(t *testing.T) {
 }
 
 func TestExpanderPrefersFlagVariablesOverEnvironment(t *testing.T) {
-	expander := variables.NewExpander()
+	expander := variables.NewExpander(true)
 	t.Setenv("SQD_TEST_PRIO", "env")
 
 	result := expander.Expand("value is $SQD_TEST_PRIO", map[string]string{
@@ -47,7 +47,7 @@ func TestExpanderPrefersFlagVariablesOverEnvironment(t *testing.T) {
 }
 
 func TestExpanderLeavesUndefinedPlaceholdersUnchanged(t *testing.T) {
-	expander := variables.NewExpander()
+	expander := variables.NewExpander(false)
 
 	result := expander.Expand("keep $undefined and ${also_undefined}", nil)
 
@@ -58,7 +58,7 @@ func TestExpanderLeavesUndefinedPlaceholdersUnchanged(t *testing.T) {
 }
 
 func TestExpanderReplacesWithEmptyValueFromFlags(t *testing.T) {
-	expander := variables.NewExpander()
+	expander := variables.NewExpander(false)
 
 	result := expander.Expand("value is [$empty]", map[string]string{
 		"empty": "",
@@ -71,12 +71,24 @@ func TestExpanderReplacesWithEmptyValueFromFlags(t *testing.T) {
 }
 
 func TestExpanderReplacesWithEmptyEnvironmentValue(t *testing.T) {
-	expander := variables.NewExpander()
+	expander := variables.NewExpander(true)
 	t.Setenv("SQD_TEST_EMPTY", "")
 
 	result := expander.Expand("value is [$SQD_TEST_EMPTY]", nil)
 
 	expected := "value is []"
+	if result != expected {
+		t.Errorf("expected %q, got %q", expected, result)
+	}
+}
+
+func TestExpanderIgnoresEnvironmentWhenDisabled(t *testing.T) {
+	expander := variables.NewExpander(false)
+	t.Setenv("SQD_TEST_DISABLED", "from_env")
+
+	result := expander.Expand("value is $SQD_TEST_DISABLED", nil)
+
+	expected := "value is $SQD_TEST_DISABLED"
 	if result != expected {
 		t.Errorf("expected %q, got %q", expected, result)
 	}
